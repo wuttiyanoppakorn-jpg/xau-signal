@@ -132,6 +132,7 @@
   .badge.sell{background:rgba(255,92,122,.14);color:var(--red);border:1px solid rgba(255,92,122,.35)}
   .badge.prebuy{border:1px dashed var(--green);color:var(--green)}.badge.presell{border:1px dashed var(--red);color:var(--red)}
   .chip{font-size:11px;padding:2px 8px;border-radius:7px;font-weight:500}
+  .chip.sess{background:rgba(255,255,255,.05);color:var(--muted)}.chip.sess.good{background:rgba(246,196,83,.13);color:#f8d98a}
   .chip.long{background:rgba(155,128,255,.15);color:#c6b6ff}.chip.short{background:rgba(91,140,255,.14);color:#a9c2ff}
   .time{margin-left:auto;color:var(--muted);font-size:11.5px}
   .res{font-size:11px;padding:2px 7px;border-radius:7px;background:rgba(255,255,255,.05)}
@@ -193,6 +194,7 @@
     .th{order:5;flex:1 1 45%;justify-content:space-between}
     .th input{width:auto;flex:1}
     #notifBtn,#statsBtn{order:6;flex:1 1 40%;justify-content:center}
+    #sessBtn{order:7;flex:1 1 100%;justify-content:center}
     .keys{display:none}
     main{display:flex;flex-direction:column;height:auto;padding:10px;gap:10px}
     #chartWrap{height:auto;min-height:0}
@@ -218,6 +220,7 @@
     <option value="binance">Binance · PAXG/USDT</option>
   </select>
   <label class="th" title="แสดงเฉพาะสัญญาณที่คะแนนความมั่นใจถึงระดับนี้">ความมั่นใจขั้นต่ำ <input type="range" id="thr" min="50" max="90" step="1"><b id="thrV"></b></label>
+  <button class="btn" id="sessBtn" title="แสดง/แจ้งเตือนเฉพาะสัญญาณช่วง London/NY (19:00–23:00 น. ไทย) ซึ่งสถิติย้อนหลังดีกว่าช่วงอื่น">🕖 ทุกช่วงเวลา</button>
   <button class="btn" id="notifBtn" title="เปิดเสียงและการแจ้งเตือนของเบราว์เซอร์">🔕 เปิดแจ้งเตือน</button>
   <button class="btn" id="statsBtn">📊 สถิติ / บันทึก</button>
   <div class="status"><span class="dot" id="dot"></span><span id="statusText">กำลังเชื่อมต่อ...</span></div>
@@ -284,7 +287,11 @@ E.TF_SEC = {M1: 60, M5: 300, M15: 900, H1: 3600, H4: 14400};
 E.TF_LIST = ['M1', 'M5', 'M15', 'H1', 'H4'];
 E.MTF_W = {M1: 0.5, M5: 0.75, M15: 1, H1: 1.25, H4: 1.5};
 E.W = {ema: 1.5, pullback: 0.75, adx: 1, rsi: 1, div: 1, macd: 1, stoch: 0.75, bb: 0.75, vwap: 0.75, sr: 1, candle: 1, struct: 1, vol: 0.5};
-E.DEFAULTS = {threshold: 60, cooldown: 3, rrShort: 1.5, rrLong: 2.5, slShort: [1.5, 3], slLong: [2, 4], filterH4: true};
+E.DEFAULTS = {threshold: 60, cooldown: 3, rrShort: 1.5, rrLong: 2.5, slShort: [1.5, 3], slLong: [2, 4], filterH4: true, sessionOnly: false};
+// London/New York overlap 12:00-16:00 UTC (19:00-23:00 Bangkok). Walk-forward research (xau-research, 2022-2026) found M5 signals in this window
+// beat the 24h engine out-of-sample in 17/20, 8/10 and 5/5 quarterly folds (PAXG all / PAXG 2024Q3+ / XAUT), but it is NOT a proven positive edge.
+E.GOOD_SESSION = {fromUTC: 12, toUTC: 16};
+E.inGoodSession = function (t) { const h = new Date(t * 1000).getUTCHours(); return h >= E.GOOD_SESSION.fromUTC && h < E.GOOD_SESSION.toUTC; };
 const PIV = 3;
 E.PIV = PIV;
 
@@ -579,7 +586,7 @@ E.makeSignal = function (bars, ind, j, ev, dir, entry, opt) {
   const long = E.isLong(ev, dir), lv = E.levelsFor(bars, ind, j, dir, long, entry, opt), o = ev[dir];
   const agree = o.factors.filter(f => f.s > 0.25).sort((a, b) => b.s - a.s).map(f => f.n);
   const against = o.factors.filter(f => f.s < -0.25).map(f => f.n);
-  return {t: bars[j].t, idx: j, dir, long, entry, sl: lv.sl, tp: lv.tp, rr: lv.rr, conf: o.conf, trig: o.trig.slice(), agree, against};
+  return {t: bars[j].t, idx: j, dir, long, entry, sl: lv.sl, tp: lv.tp, rr: lv.rr, conf: o.conf, trig: o.trig.slice(), agree, against, goodSess: E.inGoodSession(bars[j].t)};
 };
 
 // evaluate all closed bars once; signals for any threshold can be derived cheaply
@@ -591,6 +598,7 @@ E.evaluateAll = function (bars, ind, ctx, lastClosed) {
 E.signalsFrom = function (bars, ind, evs, opt) {
   opt = Object.assign({}, E.DEFAULTS, opt); const out = []; let lastB = -99, lastS = -99;
   for (let j = 0; j < evs.length; j++) { const ev = evs[j]; if (!ev) continue;
+    if (opt.sessionOnly && !E.inGoodSession(bars[j].t)) continue;
     const d = pick(ev, opt.threshold, opt.filterH4); if (!d) continue;
     if (d === 'BUY' ? j - lastB <= opt.cooldown : j - lastS <= opt.cooldown) continue;
     const s = E.makeSignal(bars, ind, j, ev, d, bars[j].c, opt);
@@ -715,7 +723,7 @@ let priceLines = [];
 const state = {tf: localStorage.getItem('xau_tf') || 'M5', srcPref: localStorage.getItem('xau_src') || 'auto', src: null,
   threshold: +(localStorage.getItem('xau_thr') || E.DEFAULTS.threshold),
   bars: [], mtf: {}, chat: [], chatUpdated: null, tab: 'web', view: localStorage.getItem('xau_view') || 'oanda', ctx: null, ind: null, evs: null, signals: [], pre: {}, liveEv: null,
-  disconnect: null, lastMsg: 0, sigKeys: null, alerts: localStorage.getItem('xau_alerts') === '1', spot: null, spotAt: 0, lastPrice: null, gen: 0};
+  disconnect: null, lastMsg: 0, sigKeys: null, alerts: localStorage.getItem('xau_alerts') === '1', sessOnly: localStorage.getItem('xau_sess') === '1', spot: null, spotAt: 0, lastPrice: null, gen: 0};
 if (!TFS[state.tf]) state.tf = 'M5';
 $('srcSel').value = state.srcPref;
 $('thr').value = state.threshold; $('thrV').textContent = state.threshold + '%';
@@ -761,6 +769,10 @@ function renderAlertBtn() {
   $('notifBtn').textContent = state.alerts ? (perm === 'granted' ? '🔔 แจ้งเตือนเปิด' : '🔔 เสียงเปิด (เบราว์เซอร์ไม่อนุญาตป๊อปอัป)') : '🔕 เปิดแจ้งเตือน';
   $('notifBtn').classList.toggle('on', state.alerts);
 }
+function renderSessBtn() { $('sessBtn').textContent = state.sessOnly ? '🕖 เฉพาะ 19:00–23:00 น.' : '🕖 ทุกช่วงเวลา'; $('sessBtn').classList.toggle('on', state.sessOnly); }
+renderSessBtn();
+$('sessBtn').onclick = () => { state.sessOnly = !state.sessOnly; localStorage.setItem('xau_sess', state.sessOnly ? '1' : '0'); renderSessBtn();
+  toast(state.sessOnly ? 'แสดงและแจ้งเตือนเฉพาะสัญญาณช่วง 19:00–23:00 น. (London/NY)' : 'แสดงสัญญาณทุกช่วงเวลา'); rebuildSignals(false); };
 $('notifBtn').onclick = async () => {
   if (state.alerts) { state.alerts = false; }
   else { state.alerts = true; if ('Notification' in window && Notification.permission === 'default') { try { await Notification.requestPermission(); } catch (e) {} } beep(true); }
@@ -832,6 +844,7 @@ const nowS = () => Math.floor(Date.now() / 1000);
 function failReason(ev, dir) {
   if (!ev) return 'ข้อมูลไม่พอ';
   const o = ev[dir];
+  if (state.sessOnly && state.bars.length && !E.inGoodSession(state.bars[state.bars.length - 1].t)) return 'นอกช่วง 19:00–23:00 น.';
   if (E.DEFAULTS.filterH4 && ev.mtf.H4 === (dir === 'BUY' ? 'down' : 'up')) return 'สวนเทรนด์ H4';
   if (!o.trig.length) return 'จุดกระตุ้นหายไป';
   if (o.conf < state.threshold) return `ความมั่นใจลดลงเหลือ ${o.conf}% (ต่ำกว่าเกณฑ์ ${state.threshold}%)`;
@@ -854,7 +867,7 @@ function resolvePres() {
 function rebuildSignals(liveClose) {
   if (!state.evs) return;
   const ci = closedIdx();
-  state.signals = E.signalsFrom(state.bars, state.ind, state.evs, {threshold: state.threshold});
+  state.signals = E.signalsFrom(state.bars, state.ind, state.evs, {threshold: state.threshold, sessionOnly: state.sessOnly});
   const keys = new Set(state.signals.map(s => s.t + s.dir));
   if (liveClose && state.sigKeys) {
     for (const s of state.signals) if (!state.sigKeys.has(s.t + s.dir) && s.idx === ci && !logGet(sigRecord(s, 'confirmed', 'live').id)) { logUpsert(sigRecord(s, 'confirmed', 'live')); notify(s, 'confirmed'); s.fresh = true; }
@@ -876,6 +889,7 @@ function webCards() {
   for (const r of LOG) {
     if (r.src !== state.src || r.tf !== state.tf || r.stage !== 'confirmed') continue;
     if (r.origin !== 'live' && r.conf < state.threshold) continue;
+    if (state.sessOnly && !E.inGoodSession(r.t)) continue;
     byKey.set(r.t + r.dir, fromLog(r));
   }
   for (const s of state.signals) {
@@ -884,7 +898,7 @@ function webCards() {
     byKey.set(k, Object.assign({key: k, kind: 'confirmed', origin: 'engine'}, s));
   }
   const confirmed = [...byKey.values()];
-  const pres = LOG.filter(r => r.src === state.src && r.tf === state.tf && r.stage === 'pre' && r.status !== 'ยืนยันแล้ว').map(r => {
+  const pres = LOG.filter(r => r.src === state.src && r.tf === state.tf && r.stage === 'pre' && r.status !== 'ยืนยันแล้ว' && (!state.sessOnly || E.inGoodSession(r.t))).map(r => {
     const c = fromLog(r), live = state.pre[r.dir];
     if (live && live.logId === r.id) { c.liveConf = live.liveConf; c.fresh = live.fresh; c.pending = live.badSince ? live.pendingReason : null; }
     return c;
@@ -907,8 +921,9 @@ function evalLive(force) {
   for (const dir of ['BUY', 'SELL']) {
     const o = ev && ev[dir], h4bad = ev && E.DEFAULTS.filterH4 && ev.mtf.H4 === (dir === 'BUY' ? 'down' : 'up');
     const last = [...state.signals].reverse().find(s => s.dir === dir), cool = !last || j - last.idx > E.DEFAULTS.cooldown;
-    const enter = o && !h4bad && cool && o.trig.length && o.conf >= state.threshold;
-    const hold = o && !h4bad && o.trig.length && o.conf >= state.threshold - HYST;
+    const sessOk = !state.sessOnly || E.inGoodSession(bars[j].t);
+    const enter = o && !h4bad && sessOk && cool && o.trig.length && o.conf >= state.threshold;
+    const hold = o && !h4bad && sessOk && o.trig.length && o.conf >= state.threshold - HYST;
     const id = `${state.src}|${state.tf}|${bars[j].t}|${dir}|pre`, rec = logGet(id);
     let p = state.pre[dir]; if (p && p.t !== bars[j].t) p = null;
     if (!p && rec && rec.status === 'รอปิดแท่ง') {   // restored after reload / TF switch
@@ -1015,7 +1030,7 @@ function sigHtml(s) {
   const confLabel = act && s.liveConf != null && s.liveConf !== s.conf ? `${s.conf}% <span class="sub">(ตอนนี้ ${s.liveConf}%)</span>` : `${s.conf}%`;
   return `<div class="sig ${s.dir}${pre ? ' pre' : ''}${cancelled ? ' off' : ''}${s.fresh ? ' new' : ''}" data-t="${s.t}">
     <div class="row1"><span class="badge ${pre ? 'pre' + s.dir.toLowerCase() : s.dir.toLowerCase()}">${pre ? 'เตรียม ' : ''}${s.dir === 'BUY' ? '▲ BUY' : '▼ SELL'}</span>
-    <span class="chip ${s.long ? 'long' : 'short'}">${typeTh(s.long)}</span>${res}<span class="time">${fmtTime(s.t)} น.</span></div>
+    <span class="chip ${s.long ? 'long' : 'short'}">${typeTh(s.long)}</span>${E.inGoodSession(s.t) ? '<span class="chip sess good" title="ช่วง London/NY 19:00–23:00 น. · สถิติย้อนหลังดีกว่าช่วงอื่น">🕖 ช่วงดี</span>' : '<span class="chip sess" title="นอกช่วง 19:00–23:00 น. · สถิติย้อนหลังแย่กว่า">นอกช่วงดี</span>'}${res}<span class="time">${fmtTime(s.t)} น.</span></div>
     <div class="levels"><div><small>จุดเข้า</small><b>${fmt(s.entry)}</b></div><div><small>Stop Loss</small><b class="down">${fmt(s.sl)}</b></div><div><small>Take Profit · RR 1:${s.rr}</small><b class="up">${fmt(s.tp)}</b></div></div>
     <div class="confRow">ความมั่นใจ<div class="confBar"><i style="width:${s.conf}%"></i></div><b>${confLabel}</b></div>
     <div class="chips">${chips}</div>${why}${mt5}</div>`;

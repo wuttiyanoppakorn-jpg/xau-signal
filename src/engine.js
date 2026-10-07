@@ -6,7 +6,11 @@ E.TF_SEC = {M1: 60, M5: 300, M15: 900, H1: 3600, H4: 14400};
 E.TF_LIST = ['M1', 'M5', 'M15', 'H1', 'H4'];
 E.MTF_W = {M1: 0.5, M5: 0.75, M15: 1, H1: 1.25, H4: 1.5};
 E.W = {ema: 1.5, pullback: 0.75, adx: 1, rsi: 1, div: 1, macd: 1, stoch: 0.75, bb: 0.75, vwap: 0.75, sr: 1, candle: 1, struct: 1, vol: 0.5};
-E.DEFAULTS = {threshold: 60, cooldown: 3, rrShort: 1.5, rrLong: 2.5, slShort: [1.5, 3], slLong: [2, 4], filterH4: true};
+E.DEFAULTS = {threshold: 60, cooldown: 3, rrShort: 1.5, rrLong: 2.5, slShort: [1.5, 3], slLong: [2, 4], filterH4: true, sessionOnly: false};
+// London/New York overlap 12:00-16:00 UTC (19:00-23:00 Bangkok). Walk-forward research (xau-research, 2022-2026) found M5 signals in this window
+// beat the 24h engine out-of-sample in 17/20, 8/10 and 5/5 quarterly folds (PAXG all / PAXG 2024Q3+ / XAUT), but it is NOT a proven positive edge.
+E.GOOD_SESSION = {fromUTC: 12, toUTC: 16};
+E.inGoodSession = function (t) { const h = new Date(t * 1000).getUTCHours(); return h >= E.GOOD_SESSION.fromUTC && h < E.GOOD_SESSION.toUTC; };
 const PIV = 3;
 E.PIV = PIV;
 
@@ -301,7 +305,7 @@ E.makeSignal = function (bars, ind, j, ev, dir, entry, opt) {
   const long = E.isLong(ev, dir), lv = E.levelsFor(bars, ind, j, dir, long, entry, opt), o = ev[dir];
   const agree = o.factors.filter(f => f.s > 0.25).sort((a, b) => b.s - a.s).map(f => f.n);
   const against = o.factors.filter(f => f.s < -0.25).map(f => f.n);
-  return {t: bars[j].t, idx: j, dir, long, entry, sl: lv.sl, tp: lv.tp, rr: lv.rr, conf: o.conf, trig: o.trig.slice(), agree, against};
+  return {t: bars[j].t, idx: j, dir, long, entry, sl: lv.sl, tp: lv.tp, rr: lv.rr, conf: o.conf, trig: o.trig.slice(), agree, against, goodSess: E.inGoodSession(bars[j].t)};
 };
 
 // evaluate all closed bars once; signals for any threshold can be derived cheaply
@@ -313,6 +317,7 @@ E.evaluateAll = function (bars, ind, ctx, lastClosed) {
 E.signalsFrom = function (bars, ind, evs, opt) {
   opt = Object.assign({}, E.DEFAULTS, opt); const out = []; let lastB = -99, lastS = -99;
   for (let j = 0; j < evs.length; j++) { const ev = evs[j]; if (!ev) continue;
+    if (opt.sessionOnly && !E.inGoodSession(bars[j].t)) continue;
     const d = pick(ev, opt.threshold, opt.filterH4); if (!d) continue;
     if (d === 'BUY' ? j - lastB <= opt.cooldown : j - lastS <= opt.cooldown) continue;
     const s = E.makeSignal(bars, ind, j, ev, d, bars[j].c, opt);

@@ -1,8 +1,8 @@
 {
  "version": 1,
  "basis": "spot XAU/USD",
- "updated_utc": "2026-10-07T19:31:18Z",
- "count": 6,
+ "updated_utc": "2026-10-07T20:25:52Z",
+ "count": 7,
  "signals": [
   {
    "id": "23dceab284aa",
@@ -92,6 +92,21 @@
    "tp": 4100.0,
    "setup": "M5 breakdown below 4110.3-4111 range low to 4106 (new 3h low), sell retest of broken support; RSI 35, MACD<signal, H1/H4 down (spot basis, XAUT gap -0.3)",
    "xaut_gap": -0.3,
+   "basis": "spot"
+  },
+  {
+   "id": "0b6038fc43fe",
+   "sent": 1791404760,
+   "sent_bkk": "2026-10-08 03:26",
+   "t": 1791404700,
+   "data_bkk": "2026-10-08 03:25",
+   "side": "BUY",
+   "type": "scalp",
+   "entry": 4111.0,
+   "sl": 4105.0,
+   "tp": 4118.0,
+   "setup": "M5 bounce from 4103.7 (XAUT) low, 5 higher closes, price back above M5 EMA20/50, MACD crossed above signal, RSI 57; counter-trend vs H1/H4 down, TP below H1 EMA20 ~4120 (spot basis, XAUT gap -1.4)",
+   "xaut_gap": -1.4,
    "basis": "spot"
   }
  ]

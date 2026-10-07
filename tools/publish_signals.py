@@ -37,7 +37,8 @@ def convert(rows):
         sid = hashlib.sha1(f"{r['sent_bkk']}|{side}|{typ}|{entry}|{sl}|{tp}".encode()).hexdigest()[:12]
         out.append({"id": sid, "sent": sent, "sent_bkk": r["sent_bkk"], "t": data_t, "data_bkk": r.get("data_bkk"),
                     "side": side, "type": typ, "entry": entry, "sl": sl, "tp": tp, "setup": setup,
-                    "xaut_gap": float(m.group(1)) if m else None})
+                    "xaut_gap": float(m.group(1)) if m else None,
+                    "basis": "spot" if "spot basis" in setup.lower() else "unspecified"})
     out.sort(key=lambda x: (x["sent"], x["id"]))
     return out
 

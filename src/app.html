@@ -698,6 +698,9 @@ function chatStatus(c) {
   for (const bars of sets) {
     if (!bars.length || bars[0].t > c.sent + 60) continue;
     const k = bars.findIndex(b => b.t + (bars === state.bars ? E.TF_SEC[state.tf] : 60) > c.sent); if (k < 0) continue;
+    // sanity check: the signal's entry must be near the real price when it was sent (otherwise it was quoted on another basis, e.g. futures)
+    const px = bars[k].o - off, atr = state.ind && state.ind.atr[state.ind.atr.length - 1] || 3;
+    if (Math.abs(px - c.entry) > Math.max(10, 4 * atr)) return {r: 'basis', px, off};
     const oc = E.outcome(bars, k, c.side, sl, tp);
     return {r: oc.r, at: oc.k >= 0 ? bars[oc.k].t : null, off};
   }
@@ -706,13 +709,14 @@ function chatStatus(c) {
 function chatHtml(c) {
   const st = chatStatus(c), now = state.lastPrice != null ? state.lastPrice - st.off : null;
   const res = st.r === 'win' ? `<span class="res win">✅ ถึง TP ${st.at ? fmtTime(st.at) + ' น.' : ''}</span>` : st.r === 'loss' ? `<span class="res loss">❌ โดน SL ${st.at ? fmtTime(st.at) + ' น.' : ''}</span>`
-    : st.r === 'open' ? '<span class="res open">⏳ ยังไม่จบ</span>' : '<span class="res">ไม่มีข้อมูลแท่งเทียนพอตรวจผล</span>';
+    : st.r === 'open' ? '<span class="res open">⏳ ยังไม่จบ</span>' : st.r === 'basis' ? '<span class="res cancel">⚠️ ราคาคนละฐาน · ไม่ตรวจผล</span>' : '<span class="res">ไม่มีข้อมูลแท่งเทียนพอตรวจผล</span>';
+  const basisNote = st.r === 'basis' ? `<div class="why warn">จุดเข้า ${fmt(c.entry)} ห่างจากราคา Spot ตอนส่ง (≈ ${fmt(st.px)}) มาก — น่าจะอ้างอิงราคาทองฟิวเจอร์ส (GC) จึงไม่นำมาตรวจ TP/SL</div>` : '';
   const dist = st.r === 'open' && now != null ? `<div class="mt5">ราคาตอนนี้ ≈ Spot ${fmt(now)} · ห่าง TP ${Math.abs(c.tp - now).toFixed(2)} · ห่าง SL ${Math.abs(c.sl - now).toFixed(2)}</div>` : '';
   return `<div class="sig chat ${c.side}" data-t="${Math.floor(c.t / E.TF_SEC[state.tf]) * E.TF_SEC[state.tf]}">
     <div class="row1"><span class="badge chatb">★ แชท</span><span class="badge ${c.side.toLowerCase()}">${c.side === 'BUY' ? '▲ BUY' : '▼ SELL'}</span>
     <span class="chip ${c.type === 'hold' ? 'long' : 'short'}">${c.type === 'hold' ? 'ถือยาว' : 'เก็บสั้นๆ'}</span>${res}<span class="time">ส่ง ${fmtTime(c.sent)} น.</span></div>
-    <div class="levels"><div><small>จุดเข้า (Spot)</small><b>${fmt(c.entry)}</b></div><div><small>Stop Loss</small><b class="down">${fmt(c.sl)}</b></div><div><small>Take Profit · RR 1:${(Math.abs(c.tp - c.entry) / Math.abs(c.entry - c.sl)).toFixed(1)}</small><b class="up">${fmt(c.tp)}</b></div></div>
-    <div class="why chatwhy">💬 ${esc(c.setup || '')}</div>
+    <div class="levels"><div><small>จุดเข้า${c.basis === 'unspecified' ? '' : ' (Spot)'}</small><b>${fmt(c.entry)}</b></div><div><small>Stop Loss</small><b class="down">${fmt(c.sl)}</b></div><div><small>Take Profit · RR 1:${(Math.abs(c.tp - c.entry) / Math.abs(c.entry - c.sl)).toFixed(1)}</small><b class="up">${fmt(c.tp)}</b></div></div>
+    <div class="why chatwhy">💬 ${esc(c.setup || '')}</div>${basisNote}
     <div class="mt5" style="color:var(--muted)">ราคาเป็นฐาน Spot XAU/USD · บนกราฟนี้ ≈ เข้า ${fmt(c.entry + st.off)} · SL ${fmt(c.sl + st.off)} · TP ${fmt(c.tp + st.off)}</div>${dist}</div>`;
 }
 let chatSeen = null;
@@ -893,7 +897,7 @@ function renderTvSig() {
   const sig = pre || confOpen;
   if (sig) body += row(`${pre ? 'เตรียมเข้า' : 'ยืนยัน'} ${fmtTime(sig.t)} น. · ${sig.conf}%`, sig.dir, typeTh(sig.long), sig.entry - o, sig.sl - o, sig.tp - o);
   if (chat) { const st = chatStatus(chat); body += row(`★ จากแชท ส่ง ${fmtTime(chat.sent)} น.`, chat.side, chat.type === 'hold' ? 'ถือยาว' : 'เก็บสั้นๆ', chat.entry, chat.sl, chat.tp,
-    `<span class="sub">${st.r === 'win' ? '✅ ถึง TP' : st.r === 'loss' ? '❌ โดน SL' : st.r === 'open' ? '⏳ ยังไม่จบ' : ''}</span>`); }
+    `<span class="sub">${st.r === 'win' ? '✅ ถึง TP' : st.r === 'loss' ? '❌ โดน SL' : st.r === 'open' ? '⏳ ยังไม่จบ' : st.r === 'basis' ? '⚠️ ราคาคนละฐาน' : ''}</span>`); }
   if (!body) body = '<div class="sub" style="margin-top:4px">ยังไม่มีสัญญาณที่เปิดอยู่</div>';
   const html = `<div class="ttl">🎯 สัญญาณล่าสุด (ราคาแบบ Spot ≈ OANDA/Exness)<button id="tvSigBtn" title="ย่อ/ขยาย">${tvSigMin ? '▢' : '—'}</button></div>
     <div class="body">${body}<div class="sub" style="margin-top:6px">แปลงจากกราฟ ${state.src ? SOURCES[state.src].short : ''} ด้วยส่วนต่าง ${off == null ? '-' : (off >= 0 ? '+' : '') + off.toFixed(2)} · ระบบอ่านแท่งเทียนในกราฟ TradingView ไม่ได้ จึงไม่มีลูกศรบนกราฟนี้</div></div>`;

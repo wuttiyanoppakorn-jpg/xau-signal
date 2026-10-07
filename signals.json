@@ -1,8 +1,8 @@
 {
  "version": 1,
  "basis": "spot XAU/USD",
- "updated_utc": "2026-10-07T22:07:56Z",
- "count": 8,
+ "updated_utc": "2026-10-07T22:32:24Z",
+ "count": 9,
  "signals": [
   {
    "id": "23dceab284aa",
@@ -122,6 +122,21 @@
    "tp": 4105.0,
    "setup": "M5 rejection at 4117 (XAUT) below H1 EMA20 ~4120, two bearish candles closing below M5 EMA20/50, MACD crossed below signal, RSI 43, H1/H4 down (spot basis, XAUT gap +0.9)",
    "xaut_gap": 0.9,
+   "basis": "spot"
+  },
+  {
+   "id": "5a21d779ae24",
+   "sent": 1791412380,
+   "sent_bkk": "2026-10-08 05:33",
+   "t": 1791412200,
+   "data_bkk": "2026-10-08 05:30",
+   "side": "SELL",
+   "type": "hold",
+   "entry": 4107.0,
+   "sl": 4112.5,
+   "tp": 4091.5,
+   "setup": "M5 Bollinger squeeze breakdown below swing support 4109.8 (XAUT), sell retest of broken support; M15/H1/H4 down (H1 EMA20 4120 < EMA50 4132), MACD bearish, RSI 41, StochRSI oversold so wait for retest; confidence 84 (spot basis, XAUT gap +2.5)",
+   "xaut_gap": 2.5,
    "basis": "spot"
   }
  ]

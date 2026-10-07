@@ -1,0 +1,92 @@
+{
+ "version": 1,
+ "basis": "spot XAU/USD",
+ "updated_utc": "2026-10-07T19:27:45Z",
+ "count": 6,
+ "signals": [
+  {
+   "id": "23dceab284aa",
+   "sent": 1791394860,
+   "sent_bkk": "2026-10-08 00:41",
+   "t": 1791394200,
+   "data_bkk": "2026-10-08 00:30",
+   "side": "SELL",
+   "type": "hold",
+   "entry": 4149.0,
+   "sl": 4161.0,
+   "tp": 4113.0,
+   "setup": "Sell rally into H1 EMA20/4153 resistance, H1+H4 downtrend",
+   "xaut_gap": null
+  },
+  {
+   "id": "88af79887747",
+   "sent": 1791394860,
+   "sent_bkk": "2026-10-08 00:41",
+   "t": 1791394200,
+   "data_bkk": "2026-10-08 00:30",
+   "side": "BUY",
+   "type": "scalp",
+   "entry": 4142.0,
+   "sl": 4135.0,
+   "tp": 4151.0,
+   "setup": "M5 pullback to EMA20 in M5 uptrend after 4153 high",
+   "xaut_gap": null
+  },
+  {
+   "id": "c54c04f38dee",
+   "sent": 1791395160,
+   "sent_bkk": "2026-10-08 00:46",
+   "t": 1791395100,
+   "data_bkk": "2026-10-08 00:45",
+   "side": "SELL",
+   "type": "hold",
+   "entry": 4112.7,
+   "sl": 4127.0,
+   "tp": 4090.0,
+   "setup": "Rejection at H1 EMA20 ~4125, H1+H4 downtrend (EMA20<EMA50, MACD<0), spot basis",
+   "xaut_gap": null
+  },
+  {
+   "id": "c90a0d436ff3",
+   "sent": 1791395160,
+   "sent_bkk": "2026-10-08 00:46",
+   "t": 1791395100,
+   "data_bkk": "2026-10-08 00:45",
+   "side": "SELL",
+   "type": "scalp",
+   "entry": 4112.7,
+   "sl": 4118.0,
+   "tp": 4103.0,
+   "setup": "M5 rejection from 4126.5, close below M5 EMA20, MACD below signal (spot basis, XAUT gap -0.9)",
+   "xaut_gap": -0.9
+  },
+  {
+   "id": "a5a14408547c",
+   "sent": 1791397560,
+   "sent_bkk": "2026-10-08 01:26",
+   "t": 1791397500,
+   "data_bkk": "2026-10-08 01:25",
+   "side": "SELL",
+   "type": "scalp",
+   "entry": 4112.0,
+   "sl": 4118.0,
+   "tp": 4104.0,
+   "setup": "M5 lower high 4121.8 (XAUT) rejected at 01:05, back below M5 EMA20, MACD below signal, H1/H4 down (spot basis, XAUT gap -1.4)",
+   "xaut_gap": -1.4
+  },
+  {
+   "id": "2ace47be033d",
+   "sent": 1791400140,
+   "sent_bkk": "2026-10-08 02:09",
+   "t": 1791399900,
+   "data_bkk": "2026-10-08 02:05",
+   "side": "SELL",
+   "type": "scalp",
+   "entry": 4109.5,
+   "sl": 4114.0,
+   "tp": 4100.0,
+   "setup": "M5 breakdown below 4110.3-4111 range low to 4106 (new 3h low), sell retest of broken support; RSI 35, MACD<signal, H1/H4 down (spot basis, XAUT gap -0.3)",
+   "xaut_gap": -0.3
+  }
+ ]
+}

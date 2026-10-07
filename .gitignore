@@ -1,0 +1,3 @@
+node_modules/
+tools/
+backtest/data_*.json

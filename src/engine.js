@@ -6,7 +6,9 @@ E.TF_SEC = {M1: 60, M5: 300, M15: 900, H1: 3600, H4: 14400};
 E.TF_LIST = ['M1', 'M5', 'M15', 'H1', 'H4'];
 E.MTF_W = {M1: 0.5, M5: 0.75, M15: 1, H1: 1.25, H4: 1.5};
 E.W = {ema: 1.5, pullback: 0.75, adx: 1, rsi: 1, div: 1, macd: 1, stoch: 0.75, bb: 0.75, vwap: 0.75, sr: 1, candle: 1, struct: 1, vol: 0.5};
-E.DEFAULTS = {threshold: 60, cooldown: 3, rrShort: 1.5, rrLong: 2.5, slShort: [1.5, 3], slLong: [2, 4], filterH4: true, sessionOnly: false};
+E.DEFAULTS = {threshold: 60, cooldown: 3, rrShort: 1.5, rrLong: 2.5, slShort: [1.5, 3], slLong: [2, 4], filterH4: true, sessionOnly: false,
+  holdNeedM15: true, scalpSessUTC: [12, 16], minAtrRel: 0.7, beAtR: 1.0};   // golive candidate A (xau-research/golive_study)
+E.GOLIVE_T = 1791444000;   // break-even rule applies to signals from this bar time on
 // London/New York overlap 12:00-16:00 UTC (19:00-23:00 Bangkok). Walk-forward research (xau-research, 2022-2026) found M5 signals in this window
 // beat the 24h engine out-of-sample in 17/20, 8/10 and 5/5 quarterly folds (PAXG all / PAXG 2024Q3+ / XAUT), but it is NOT a proven positive edge.
 E.GOOD_SESSION = {fromUTC: 12, toUTC: 16};
@@ -108,6 +110,9 @@ E.compute = function (bars) {
   const ind = {c, e9: ema(c, 9), e20: ema(c, 20), e50: ema(c, 50), e200: ema(c, 200), rsi: rsi(c), atr: atr(bars), md: macd(c), adx: adx(bars), bb: boll(c), vwap: vwap(bars)};
   ind.st = stochRsi(ind.rsi);
   ind.volAvg = sma(v, 20); ind.hasVol = v.some(x => x > 0);
+  { const A = ind.atr, ps = [0], pc = [0];   // ATR relative to its 1000-bar mean (same definition as features.js atr_rel)
+    for (let i = 0; i < n; i++) { ps.push(ps[i] + (A[i] == null ? 0 : A[i])); pc.push(pc[i] + (A[i] == null ? 0 : 1)); }
+    ind.atrRel = A.map((a, i) => { const lo = Math.max(0, i - 999), k = pc[i + 1] - pc[lo]; return a == null || !k ? null : a / ((ps[i + 1] - ps[lo]) / k); }); }
   const pivH = [], pivL = [];
   for (let i = PIV; i < n - PIV; i++) {
     let isH = true, isL = true;
@@ -273,6 +278,7 @@ E.evalBar = function (bars, ind, j, ctx, tEnd) {
     if (ind.hasVol && va && (b.v || 0) > 1.5 * va) { const s = b.c > b.o ? 0.8 : b.c < b.o ? -0.8 : 0; if (s) add('vol', E.W.vol, s, -s, `Volume สูง ${((b.v) / va).toFixed(1)}x`, `Volume สูง ${((b.v) / va).toFixed(1)}x`); } }
 
   for (const d of ['BUY', 'SELL']) { const o = out[d]; o.conf = o.w ? Math.round(50 + 50 * o.sum / o.w) : 0; }
+  out.atrRel = ind.atrRel ? ind.atrRel[j] : null; out.hourUTC = new Date(b.t * 1000).getUTCHours();
   return out;
 };
 
@@ -285,18 +291,29 @@ E.levelsFor = function (bars, ind, j, dir, long, entry, opt) {
   const rr = long ? opt.rrLong : opt.rrShort, risk = Math.abs(entry - sl);
   return {sl, tp: dir === 'BUY' ? entry + rr * risk : entry - rr * risk, rr};
 };
-E.outcome = function (bars, fromIdx, dir, sl, tp) {   // SL checked first within a bar (conservative)
+E.outcome = function (bars, fromIdx, dir, sl, tp, entry, beAtR) {   // SL checked first within a bar (conservative)
+  // optional break-even: once price reaches entry +/- beAtR x risk, the stop moves to entry from the NEXT bar ('be' result)
+  const be = entry != null && beAtR ? entry + (dir === 'BUY' ? 1 : -1) * beAtR * Math.abs(entry - sl) : null; let stop = sl, armed = false;
   for (let k = fromIdx; k < bars.length; k++) { const x = bars[k];
-    if (dir === 'BUY') { if (x.l <= sl) return {r: 'loss', k}; if (x.h >= tp) return {r: 'win', k}; }
-    else { if (x.h >= sl) return {r: 'loss', k}; if (x.l <= tp) return {r: 'win', k}; } }
+    if (dir === 'BUY') { if (x.l <= stop) return {r: armed ? 'be' : 'loss', k}; if (x.h >= tp) return {r: 'win', k}; if (be != null && !armed && x.h >= be) { armed = true; stop = entry; } }
+    else { if (x.h >= stop) return {r: armed ? 'be' : 'loss', k}; if (x.l <= tp) return {r: 'win', k}; if (be != null && !armed && x.l <= be) { armed = true; stop = entry; } } }
   return {r: 'open', k: -1};
 };
 E.isLong = function (ev, dir) { const want = dir === 'BUY' ? 'up' : 'down'; return ev.mtf.H1 === want && ev.mtf.H4 === want && ev.mtf.M15 !== (want === 'up' ? 'down' : 'up'); };
 
-function pick(ev, threshold, filterH4) {
+// golive filters: returns a Thai reason when direction d is blocked, else null
+E.blockReason = function (ev, d, opt) {
+  opt = opt || E.DEFAULTS; const long = E.isLong(ev, d), want = d === 'BUY' ? 'up' : 'down';
+  if (opt.minAtrRel && ev.atrRel != null && ev.atrRel < opt.minAtrRel) return 'ตลาดนิ่งเกินไป (ATR ต่ำกว่าปกติ)';
+  if (long && opt.holdNeedM15 && ev.mtf.M15 !== want) return 'ไม้ถือยาวต้องให้เทรนด์ M15 ไปทางเดียวกัน';
+  if (!long && opt.scalpSessUTC && ev.hourUTC != null && !(ev.hourUTC >= opt.scalpSessUTC[0] && ev.hourUTC < opt.scalpSessUTC[1])) return 'ไม้เก็บสั้นส่งเฉพาะช่วง 19:00–23:00 น.';
+  return null;
+};
+function pick(ev, threshold, filterH4, opt) {
   let best = null;
   for (const d of ['BUY', 'SELL']) { const o = ev[d];
     if (filterH4 && ev.mtf.H4 === (d === 'BUY' ? 'down' : 'up')) continue;   // never trade against the H4 trend
+    if (E.blockReason(ev, d, opt)) continue;
     if (o.conf >= threshold && o.trig.length && (!best || o.conf > ev[best].conf)) best = d; }
   return best;
 }
@@ -318,10 +335,10 @@ E.signalsFrom = function (bars, ind, evs, opt) {
   opt = Object.assign({}, E.DEFAULTS, opt); const out = []; let lastB = -99, lastS = -99;
   for (let j = 0; j < evs.length; j++) { const ev = evs[j]; if (!ev) continue;
     if (opt.sessionOnly && !E.inGoodSession(bars[j].t)) continue;
-    const d = pick(ev, opt.threshold, opt.filterH4); if (!d) continue;
+    const d = pick(ev, opt.threshold, opt.filterH4, opt); if (!d) continue;
     if (d === 'BUY' ? j - lastB <= opt.cooldown : j - lastS <= opt.cooldown) continue;
     const s = E.makeSignal(bars, ind, j, ev, d, bars[j].c, opt);
-    const oc = E.outcome(bars, j + 1, d, s.sl, s.tp); s.result = oc.r; s.exitIdx = oc.k;
+    const oc = E.outcome(bars, j + 1, d, s.sl, s.tp, bars[j].t >= E.GOLIVE_T ? s.entry : null, opt.beAtR); s.result = oc.r; s.exitIdx = oc.k;
     out.push(s); if (d === 'BUY') lastB = j; else lastS = j;
   }
   return out;

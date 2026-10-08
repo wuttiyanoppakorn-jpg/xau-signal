@@ -527,7 +527,7 @@ function updateLogOutcomes() {
     for (const bars of sets) {
       if (!bars.length || bars[0].t > startT + 60) continue;
       const k = bars.findIndex(b => b.t >= startT); if (k < 0) continue;
-      const oc = E.outcome(bars, k, r.dir, r.sl, r.tp);   // a touch inside the forming candle is a real touch too
+      const oc = E.outcome(bars, k, r.dir, r.sl, r.tp, r.t >= E.GOLIVE_T ? r.entry : null, E.DEFAULTS.beAtR);   // a touch inside the forming candle is a real touch too
       if (oc.r !== 'open') { r.result = oc.r; r.resultAt = bars[oc.k].t; logDirty = true; }
       break;
     }
@@ -733,11 +733,11 @@ function sigHtml(s) {
   const pre = s.kind === 'pre', act = pre && s.status === 'รอปิดแท่ง', cancelled = pre && !act;
   const res = act ? `<span class="res open">${s.pending ? '⚠️ เงื่อนไขกำลังอ่อน' : '⏳ รอปิดแท่ง'}</span>`
     : cancelled ? `<span class="res cancel">⏹ ยกเลิก${s.statusAt ? ' ' + fmtTime(s.statusAt) + ' น.' : ''}</span>`
-    : s.result === 'win' ? '<span class="res win">✅ ถึง TP</span>' : s.result === 'loss' ? '<span class="res loss">❌ โดน SL</span>' : '<span class="res open">⏳ ยังไม่จบ</span>';
+    : s.result === 'win' ? '<span class="res win">✅ ถึง TP</span>' : s.result === 'be' ? '<span class="res cancel">🛡️ ออกที่ทุน</span>' : s.result === 'loss' ? '<span class="res loss">❌ โดน SL</span>' : '<span class="res open">⏳ ยังไม่จบ</span>';
   const off = spotOffset();
   const mt5 = off != null && (act || (!pre && s.result === 'open')) ? `<div class="mt5">≈ ราคา Spot/OANDA · เข้า ${fmt(s.entry - off)} · SL ${fmt(s.sl - off)} · TP ${fmt(s.tp - off)}</div>` : '';
   const chips = s.trig.map(x => `<span class="t">⚡ ${esc(x)}</span>`).join('') + s.agree.filter(a => !s.trig.includes(a)).slice(0, 6).map(x => `<span class="a">✔ ${esc(x)}</span>`).join('') + s.against.slice(0, 3).map(x => `<span class="x">✖ ${esc(x)}</span>`).join('');
-  const why = cancelled ? `<div class="why">เหตุผลที่ยกเลิก: ${esc(s.reason || 'เงื่อนไขไม่ครบ')}${cancelled && s.result !== 'open' ? ` · ถ้าเข้าไว้: ${s.result === 'win' ? '✅ ถึง TP' : '❌ โดน SL'}` : ''}</div>`
+  const why = cancelled ? `<div class="why">เหตุผลที่ยกเลิก: ${esc(s.reason || 'เงื่อนไขไม่ครบ')}${cancelled && s.result !== 'open' ? ` · ถ้าเข้าไว้: ${s.result === 'win' ? '✅ ถึง TP' : s.result === 'be' ? '🛡️ ออกที่ทุน' : '❌ โดน SL'}` : ''}</div>`
     : act && s.pending ? `<div class="why warn">${esc(s.pending)} — จะยกเลิกถ้ายังไม่กลับมาภายใน ${CANCEL_AFTER_MS / 1000} วินาที</div>` : '';
   const confLabel = act && s.liveConf != null && s.liveConf !== s.conf ? `${s.conf}% <span class="sub">(ตอนนี้ ${s.liveConf}%)</span>` : `${s.conf}%`;
   return `<div class="sig ${s.dir}${pre ? ' pre' : ''}${cancelled ? ' off' : ''}${s.fresh ? ' new' : ''}" data-t="${s.t}">
@@ -761,10 +761,12 @@ function chatResolve(bars, k, c, off, sec) {
   const sg = c.side === 'BUY' ? 1 : -1, entry = c.entry + off, sl = c.sl + off, tp = c.tp + off, risk = Math.abs(entry - sl);
   if (!(risk > 0)) return {r: 'unknown'};
   const typ = c.type === 'hold' ? 'hold' : 'scalp', expiry = CHAT_EXPIRY_H[typ] * 3600;
-  const run = (from, startT) => {
+  const beOn = !!(c.engine && E.DEFAULTS.beAtR && (c.t || 0) >= E.GOLIVE_T), beLvl = entry + sg * (E.DEFAULTS.beAtR || 0) * risk;
+  const run = (from, startT) => { let stop = sl, armed = false;
     for (let i = from; i < bars.length; i++) { const x = bars[i];
-      if (sg > 0 ? x.l <= sl : x.h >= sl) return {r: 'loss', at: x.t};
+      if (sg > 0 ? x.l <= stop : x.h >= stop) return {r: armed ? 'be' : 'loss', at: x.t};
       if (sg > 0 ? x.h >= tp : x.l <= tp) return {r: 'win', at: x.t};
+      if (beOn && !armed && (sg > 0 ? x.h >= beLvl : x.l <= beLvl)) { armed = true; stop = entry; }
       if (x.t + sec - startT >= expiry) return {r: 'expired', at: x.t}; }
     return {r: 'open'};
   };
@@ -787,7 +789,7 @@ function chatResolve(bars, k, c, off, sec) {
 }
 function chatStatus(c) {
   const off = chatOffset(c);
-  const srv = ['win', 'loss', 'expired', 'not_filled', 'missed'].includes(c.result) ? {r: c.result, at: c.result_t || null, why: c.miss_reason, off} : null;   // server (run_cycle.py) result wins
+  const srv = ['win', 'loss', 'be', 'expired', 'not_filled', 'missed'].includes(c.result) ? {r: c.result, at: c.result_t || null, why: c.miss_reason, off} : null;   // server (run_cycle.py) result wins
   const sets = [state.tf === 'M1' ? state.bars : state.mtf.M1 && state.mtf.M1.bars, state.bars].filter(Boolean);
   for (const bars of sets) {
     if (!bars.length || bars[0].t > c.sent + 60) continue;
@@ -802,7 +804,7 @@ function chatStatus(c) {
 }
 function chatLabel(st, c) {
   const t = st.at ? fmtTime(st.at) + ' น.' : '';
-  return st.r === 'win' ? `<span class="res win">✅ ถึง TP ${t}</span>` : st.r === 'loss' ? `<span class="res loss">❌ โดน SL ${t}</span>`
+  return st.r === 'win' ? `<span class="res win">✅ ถึง TP ${t}</span>` : st.r === 'be' ? `<span class="res cancel">🛡️ ออกที่ทุน ${t}</span>` : st.r === 'loss' ? `<span class="res loss">❌ โดน SL ${t}</span>`
     : st.r === 'expired' ? `<span class="res cancel">⌛ หมดเวลา${c.r_net != null ? ' ' + (c.r_net > 0 ? '+' : '') + c.r_net.toFixed(2) + 'R' : ''}</span>`
     : st.r === 'missed' ? `<span class="res cancel">⚪ ไม่ได้เข้า (${st.why === '1r' ? 'ราคาวิ่งไป 1R ก่อนถึงจุดเข้า' : 'ราคาถึง TP ก่อนถึงจุดเข้า'})</span>`
     : st.r === 'not_filled' ? '<span class="res cancel">⚪ หมดเวลา ไม่ได้เข้า</span>'
@@ -1163,7 +1165,7 @@ setInterval(renderNextEv, 30000);
 // ======================= stats modal + CSV =======================
 function statRow(name, rows) {
   const c = rows.filter(r => r.result !== 'open'), w = c.filter(r => r.result === 'win').length;
-  const R = c.reduce((a, r) => a + (r.result === 'win' ? r.rr : -1), 0);
+  const R = c.reduce((a, r) => a + (r.result === 'win' ? r.rr : r.result === 'be' ? 0 : -1), 0);
   return `<tr><td>${name}</td><td>${rows.length}</td><td>${c.length}</td><td>${w}</td><td>${c.length ? (100 * w / c.length).toFixed(1) + '%' : '-'}</td><td>${c.length ? (R / c.length).toFixed(2) + 'R' : '-'}</td></tr>`;
 }
 const TH_HEAD = '<tr><th>กลุ่ม</th><th>ทั้งหมด</th><th>จบแล้ว</th><th>ถึง TP</th><th>Win%</th><th>เฉลี่ย/ไม้</th></tr>';
@@ -1184,7 +1186,7 @@ function openStats(scope) {
     ${statRow('50–59%', bucket(0, 60))}${statRow('60–69%', bucket(60, 70))}${statRow('70–79%', bucket(70, 80))}${statRow('80%+', bucket(80, 101))}</table>
     <h3>ตาม BUY / SELL</h3><table>${TH_HEAD}${statRow('BUY', conf.filter(r => r.dir === 'BUY'))}${statRow('SELL', conf.filter(r => r.dir === 'SELL'))}</table>
     <h3>รายการล่าสุด</h3><table><tr><th>เวลาแท่ง</th><th>TF</th><th>ขั้น</th><th>ฝั่ง</th><th>ประเภท</th><th>%</th><th>เข้า</th><th>SL</th><th>TP</th><th>ผล</th></tr>
-    ${all.slice(-40).reverse().map(r => `<tr><td>${fmtTime(r.t)}</td><td>${r.tf}</td><td>${r.stage === 'pre' ? 'เตรียม' : 'ยืนยัน'}${r.origin === 'history' ? ' (ย้อนหลัง)' : ''}</td><td class="${r.dir === 'BUY' ? 'up' : 'down'}">${r.dir}</td><td>${r.type}</td><td>${r.conf}</td><td>${fmt(r.entry)}</td><td>${fmt(r.sl)}</td><td>${fmt(r.tp)}</td><td>${r.result === 'win' ? '✅' : r.result === 'loss' ? '❌' : '⏳'}</td></tr>`).join('')}</table>`;
+    ${all.slice(-40).reverse().map(r => `<tr><td>${fmtTime(r.t)}</td><td>${r.tf}</td><td>${r.stage === 'pre' ? 'เตรียม' : 'ยืนยัน'}${r.origin === 'history' ? ' (ย้อนหลัง)' : ''}</td><td class="${r.dir === 'BUY' ? 'up' : 'down'}">${r.dir}</td><td>${r.type}</td><td>${r.conf}</td><td>${fmt(r.entry)}</td><td>${fmt(r.sl)}</td><td>${fmt(r.tp)}</td><td>${r.result === 'win' ? '✅' : r.result === 'loss' ? '❌' : r.result === 'be' ? '🛡️' : '⏳'}</td></tr>`).join('')}</table>`;
   $('modal').style.display = 'flex';
   $('scopeSel').value = scope; $('scopeSel').onchange = e => openStats(e.target.value);
   $('closeBtn').onclick = () => $('modal').style.display = 'none';

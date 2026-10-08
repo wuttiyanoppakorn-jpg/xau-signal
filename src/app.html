@@ -314,7 +314,7 @@
         <div class="nPane" data-n="heads"><div class="nFilter" id="nFilter"></div><div id="headList"></div>
           <div class="nNote" id="headNote"></div></div>
       </div>
-      <div class="disclaimer">⚠️ สัญญาณเป็นการวิเคราะห์ทางเทคนิคอัตโนมัติ ไม่ใช่คำแนะนำการลงทุนและไม่รับประกันกำไร ผลทดสอบย้อนหลังยังไม่พบความได้เปรียบที่ชัดเจนหลังหักสเปรด · "เตรียมเข้า" อาจหายไปก่อนแท่งปิด · เทียบราคากับ MT5 และใช้ Stop Loss ทุกครั้ง</div>
+      <div class="disclaimer">⚠️ สัญญาณเป็นการวิเคราะห์ทางเทคนิคอัตโนมัติ ไม่ใช่คำแนะนำการลงทุนและไม่รับประกันกำไร ผลทดสอบย้อนหลังยังไม่พบความได้เปรียบที่ชัดเจนหลังหักสเปรด · สัญญาณขึ้นเฉพาะตอนแท่งเทียนปิดแล้วเท่านั้น · เทียบราคากับ MT5 และใช้ Stop Loss ทุกครั้ง</div>
     </div>
   </aside>
 </main>
@@ -463,9 +463,9 @@ function beep(confirmed) {
 }
 function notify(sig, stage) {
   beep(stage === 'confirmed');
-  const title = `${stage === 'pre' ? '⏳ เตรียมเข้า' : '✅ ยืนยัน'} ${sig.dir} ทองคำ (${state.tf})`;
+  const title = `✅ ยืนยัน ${sig.dir} ทองคำ (${state.tf})`;
   const body = `เข้า ${fmt(sig.entry)} · SL ${fmt(sig.sl)} · TP ${fmt(sig.tp)}\nความมั่นใจ ${sig.conf}% · ${typeTh(sig.long)}`;
-  document.title = `🔔 ${stage === 'pre' ? 'เตรียม ' : ''}${sig.dir} ${fmt(sig.entry)} · XAU`;
+  document.title = `🔔 ${sig.dir} ${fmt(sig.entry)} · XAU`;
   toast(`<b class="${sig.dir === 'BUY' ? 'up' : 'down'}">${title}</b><br>${body.replace('\n', '<br>')}`);
   if (state.alerts && 'Notification' in window && Notification.permission === 'granted') {
     try { new Notification(title, {body, tag: 'xau-' + sig.t + sig.dir + stage}); } catch (e) {}
@@ -495,11 +495,27 @@ document.addEventListener('click', () => { if (state.alerts && !audioCtx) try { 
 function setStatus(kind, text) { $('dot').className = 'dot ' + kind; $('statusText').textContent = text; }
 
 // ======================= signal log (localStorage) =======================
-const LOG_KEY = 'xau_signal_log_v1';
-let LOG = []; try { LOG = JSON.parse(localStorage.getItem(LOG_KEY) || '[]'); } catch (e) { LOG = []; }
+// v2 (2026-10-08): mid-candle 'prepare' cards were removed; only signals confirmed at candle close are kept.
+// Migration: old keys are read once, every prepare/cancelled record is purged, the clean list is saved under v2 and the old keys are deleted.
+const LOG_KEY = 'xau_signal_log_v2', OLD_LOG_KEYS = ['xau_signal_log_v1'];
+const isPreRec = r => !r || typeof r !== 'object' || r.stage !== 'confirmed' || /ยกเลิก|รอปิดแท่ง/.test(r.status || '');
+function cleanLog(list) {
+  const seen = new Set(), out = [];
+  for (const r of Array.isArray(list) ? list : []) {
+    if (isPreRec(r) || seen.has(r.id)) continue; seen.add(r.id);
+    delete r.status; delete r.statusAt; delete r.reason; delete r.confAtCancel; delete r.preAt; out.push(r);
+  }
+  return out;
+}
+let LOG = null; try { LOG = JSON.parse(localStorage.getItem(LOG_KEY) || 'null'); } catch (e) { LOG = null; }
+{ let raw = Array.isArray(LOG) ? LOG : [];
+  for (const k of OLD_LOG_KEYS) { try { const old = JSON.parse(localStorage.getItem(k) || 'null'); if (Array.isArray(old)) raw = old.concat(raw); } catch (e) {} }
+  LOG = cleanLog(raw);
+  try { localStorage.setItem(LOG_KEY, JSON.stringify(LOG)); OLD_LOG_KEYS.forEach(k => localStorage.removeItem(k)); } catch (e) { console.warn('log migrate failed', e); } }
 const logIndex = new Map(LOG.map((r, i) => [r.id, i]));
 let logDirty = false;
 function logUpsert(rec) {
+  if (!rec || (rec.stage != null && rec.stage !== 'confirmed') || /ยกเลิก/.test(rec.status || '')) return;   // only confirmed signals are stored
   const i = logIndex.get(rec.id);
   if (i == null) { LOG.push(rec); logIndex.set(rec.id, LOG.length - 1); }
   else LOG[i] = Object.assign(LOG[i], rec);
@@ -508,6 +524,7 @@ function logUpsert(rec) {
 function saveLog() {
   if (!logDirty) return; logDirty = false;
   if (LOG.length > 6000) { LOG = LOG.slice(-5000); logIndex.clear(); LOG.forEach((r, i) => logIndex.set(r.id, i)); }
+  LOG = cleanLog(LOG); logIndex.clear(); LOG.forEach((r, i) => logIndex.set(r.id, i));
   try { localStorage.setItem(LOG_KEY, JSON.stringify(LOG)); } catch (e) { console.warn('log save failed', e); }
 }
 setInterval(saveLog, 3000); window.addEventListener('beforeunload', saveLog);
@@ -563,20 +580,6 @@ function failReason(ev, dir) {
   if (o.conf < state.threshold) return `ความมั่นใจลดลงเหลือ ${o.conf}% (ต่ำกว่าเกณฑ์ ${state.threshold}%)`;
   return 'ติดช่วงพักหลังสัญญาณก่อนหน้า';
 }
-// close out pre-signals whose candle has closed (also used after a reload)
-function resolvePres() {
-  const sec = E.TF_SEC[state.tf], now = nowS();
-  for (const r of LOG) {
-    if (r.stage !== 'pre' || r.src !== state.src || r.tf !== state.tf || r.status !== 'รอปิดแท่ง' || r.t + sec > now) continue;
-    const conf = state.signals.find(s => s.t === r.t && s.dir === r.dir);
-    if (conf) logUpsert({id: r.id, status: 'ยืนยันแล้ว', statusAt: r.t + sec});
-    else {
-      const i = state.bars.findIndex(b => b.t === r.t), ev = i >= 0 && state.evs ? state.evs[i] : null;
-      logUpsert({id: r.id, status: 'ยกเลิก', statusAt: r.t + sec, reason: ev ? 'แท่งปิดแล้วไม่ผ่านเกณฑ์ · ' + failReason(ev, r.dir) : 'แท่งปิดโดยไม่ได้ยืนยัน (หน้าเว็บปิดอยู่ตอนปิดแท่ง)'});
-    }
-    if (state.pre[r.dir] && state.pre[r.dir].logId === r.id) delete state.pre[r.dir];
-  }
-}
 function rebuildSignals(liveClose) {
   if (!state.evs) return;
   const ci = closedIdx();
@@ -588,7 +591,6 @@ function rebuildSignals(liveClose) {
     // first load: log historical confirmed signals (deduplicated; an existing record is never overwritten)
     for (const s of state.signals) { const rec = sigRecord(s, 'confirmed', 'history'); if (!logGet(rec.id)) logUpsert(rec); }
   }
-  resolvePres();
   state.sigKeys = keys;
   updateLogOutcomes(); saveLog();
   drawMarkers(); renderPanel();
@@ -610,17 +612,11 @@ function webCards() {
     if (byKey.has(k)) { const c = byKey.get(k); if (c.result === 'open' && s.result !== 'open') c.result = s.result; c.fresh = s.fresh; continue; }
     byKey.set(k, Object.assign({key: k, kind: 'confirmed', origin: 'engine'}, s));
   }
-  const confirmed = [...byKey.values()];
-  const pres = LOG.filter(r => r.src === state.src && r.tf === state.tf && r.stage === 'pre' && r.status !== 'ยืนยันแล้ว' && (!state.sessOnly || E.inGoodSession(r.t))).map(r => {
-    const c = fromLog(r), live = state.pre[r.dir];
-    if (live && live.logId === r.id) { c.liveConf = live.liveConf; c.fresh = live.fresh; c.pending = live.badSince ? live.pendingReason : null; }
-    return c;
-  });
-  return confirmed.concat(pres).sort((a, b) => (b.t - a.t) || (a.kind === 'pre' ? -1 : 1));
+  return [...byKey.values()].sort((a, b) => b.t - a.t);
 }
 
-// evaluate the forming candle on every tick → 'เตรียมเข้า' pre-signals (with hysteresis so they do not flicker)
-const CANCEL_AFTER_MS = 8000, HYST = 3;
+// evaluate the forming candle on every tick for the live confidence meters ONLY.
+// No mid-candle cards: a signal appears only after its candle has closed (fullRecompute → rebuildSignals), so nothing can be cancelled.
 let liveTimer = null, liveDirty = false;
 function scheduleLive() { liveDirty = true; if (!liveTimer) liveTimer = setTimeout(() => { liveTimer = null; if (liveDirty) evalLive(false); }, 400); }
 function evalLive(force) {
@@ -629,45 +625,10 @@ function evalLive(force) {
   const j = n - 1, sec = E.TF_SEC[state.tf];
   if (bars[j].t + sec <= Date.now() / 1000) { state.liveEv = null; return; }   // no forming candle
   const ind = E.compute(bars); state.liveInd = ind;
-  const ev = E.evalBar(bars, ind, j, state.ctx, Date.now() / 1000); state.liveEv = ev;
-  let changed = false;
-  for (const dir of ['BUY', 'SELL']) {
-    const o = ev && ev[dir], h4bad = ev && E.DEFAULTS.filterH4 && ev.mtf.H4 === (dir === 'BUY' ? 'down' : 'up');
-    const blk = ev && E.blockReason(ev, dir, E.DEFAULTS);   // same candidate A filters the engine applies at candle close
-    const last = [...state.signals].reverse().find(s => s.dir === dir), cool = !last || j - last.idx > E.DEFAULTS.cooldown;
-    const sessOk = !state.sessOnly || E.inGoodSession(bars[j].t);
-    const enter = o && !h4bad && !blk && sessOk && cool && o.trig.length && o.conf >= state.threshold;
-    const hold = o && !h4bad && !blk && sessOk && o.trig.length && o.conf >= state.threshold - HYST;
-    const id = `${state.src}|${state.tf}|${bars[j].t}|${dir}|pre`, rec = logGet(id);
-    let p = state.pre[dir]; if (p && p.t !== bars[j].t) p = null;
-    if (!p && rec && rec.status === 'รอปิดแท่ง') {   // restored after reload / TF switch
-      p = state.pre[dir] = {t: rec.t, dir, logId: id, liveConf: rec.conf, badSince: null, lastConfAt: 0};
-    }
-    if (!p) {
-      if (enter && !rec) {   // a cancelled pre for this candle is final: no re-spam
-        const s = E.makeSignal(bars, ind, j, ev, dir, bars[j].c, E.DEFAULTS);
-        logUpsert(sigRecord(s, 'pre', 'live', {status: 'รอปิดแท่ง', preAt: nowS()}));
-        state.pre[dir] = {t: s.t, dir, logId: id, liveConf: s.conf, badSince: null, lastConfAt: Date.now(), fresh: true};
-        notify(s, 'pre'); changed = true; saveLog();
-      }
-      continue;
-    }
-    // active pre: debounce the live confidence number (max every 3 s) and only cancel after conditions stay broken
-    if (o && Date.now() - p.lastConfAt > 3000 && o.conf !== p.liveConf) { p.liveConf = o.conf; p.lastConfAt = Date.now(); changed = true; }
-    if (hold) { if (p.badSince) { p.badSince = null; p.pendingReason = null; changed = true; } }
-    else {
-      const reason = failReason(ev, dir);
-      if (!p.badSince) { p.badSince = Date.now(); p.pendingReason = reason; changed = true; }
-      else if (Date.now() - p.badSince >= CANCEL_AFTER_MS) {
-        logUpsert({id, status: 'ยกเลิก', statusAt: nowS(), reason: reason + ' (ระหว่างแท่ง)', confAtCancel: o ? o.conf : null});
-        delete state.pre[dir]; changed = true; saveLog();
-        toast(`<b class="side">⏹ ยกเลิก เตรียม ${dir}</b><br>${esc(reason)}`);
-      }
-    }
-  }
-  if (changed || force) drawMarkers();
+  state.liveEv = E.evalBar(bars, ind, j, state.ctx, Date.now() / 1000);
+  if (force) drawMarkers();
   renderLive();
-  if (changed || force) renderSignals();
+  if (force) renderSignals();
 }
 
 function drawIndicators() {
@@ -682,11 +643,6 @@ function drawMarkers() {
   const conf = cards.filter(c => c.kind === 'confirmed' && have.has(c.t)).sort((a, b) => a.t - b.t), nS = conf.length, lab = innerWidth < 700 ? 3 : 8;
   const mk = conf.map((s, i) => ({time: s.t + BKK, position: s.dir === 'BUY' ? 'belowBar' : 'aboveBar', color: s.dir === 'BUY' ? '#22c993' : '#ff5c7a',
     shape: s.dir === 'BUY' ? 'arrowUp' : 'arrowDown', text: i >= nS - lab ? `${s.dir} ${typeTh(s.long)} ${s.conf}%` : ''}));
-  for (const c of cards) if (c.kind === 'pre' && have.has(c.t)) {
-    const act = c.status === 'รอปิดแท่ง';
-    mk.push({time: c.t + BKK, position: c.dir === 'BUY' ? 'belowBar' : 'aboveBar', color: act ? (c.dir === 'BUY' ? '#22c993aa' : '#ff5c7aaa') : '#8d97ab88',
-      shape: 'circle', text: act ? `เตรียม ${c.dir} ${c.liveConf ?? c.conf}%` : `ยกเลิก ${c.dir}`});
-  }
   for (const c of state.chat) { const bt = Math.floor(c.t / E.TF_SEC[state.tf]) * E.TF_SEC[state.tf]; if (have.has(bt) && bt >= first)
     mk.push({time: bt + BKK, position: c.side === 'BUY' ? 'belowBar' : 'aboveBar', color: '#f6c453', shape: 'square', text: `★ แชท ${c.side}`}); }
   mk.sort((a, b) => a.time - b.time);
@@ -697,10 +653,9 @@ function drawMarkers() {
   const L = state.ind ? E.levelsAt(state.bars, state.ind, state.bars.length - 1, state.ctx) : {};
   if (L.sup != null) priceLines.push(candles.createPriceLine({price: L.sup, color: '#26a69a99', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: L.supN}));
   if (L.res != null) priceLines.push(candles.createPriceLine({price: L.res, color: '#ef535099', lineWidth: 1, lineStyle: 1, axisLabelVisible: true, title: L.resN}));
-  const activePre = cards.find(c => c.kind === 'pre' && c.status === 'รอปิดแท่ง');
-  const lastSig = activePre || cards.find(c => c.kind === 'confirmed' && c.result === 'open');
+  const lastSig = cards.find(c => c.kind === 'confirmed' && c.result === 'open');
   if (lastSig) {
-    const tag = activePre ? 'เตรียม ' : '';
+    const tag = '';
     priceLines.push(candles.createPriceLine({price: lastSig.entry, color: '#e6e9ef', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: tag + 'Entry ' + lastSig.dir}));
     priceLines.push(candles.createPriceLine({price: lastSig.sl, color: '#ff4d4f', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'SL'}));
     priceLines.push(candles.createPriceLine({price: lastSig.tp, color: '#26d07c', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'TP'}));
@@ -732,22 +687,17 @@ function renderLive() {
   setM('B', ev && ev.BUY); setM('S', ev && ev.SELL);
 }
 function sigHtml(s) {
-  const pre = s.kind === 'pre', act = pre && s.status === 'รอปิดแท่ง', cancelled = pre && !act;
-  const res = act ? `<span class="res open">${s.pending ? '⚠️ เงื่อนไขกำลังอ่อน' : '⏳ รอปิดแท่ง'}</span>`
-    : cancelled ? `<span class="res cancel">⏹ ยกเลิก${s.statusAt ? ' ' + fmtTime(s.statusAt) + ' น.' : ''}</span>`
-    : s.result === 'win' ? '<span class="res win">✅ ถึง TP</span>' : s.result === 'be' ? '<span class="res cancel">🛡️ ออกที่ทุน</span>' : s.result === 'loss' ? '<span class="res loss">❌ โดน SL</span>' : '<span class="res open">⏳ ยังไม่จบ</span>';
+  const res = s.result === 'win' ? '<span class="res win">✅ ถึง TP</span>' : s.result === 'be' ? '<span class="res cancel">🛡️ ออกที่ทุน</span>' : s.result === 'loss' ? '<span class="res loss">❌ โดน SL</span>' : '<span class="res open">⏳ ยังไม่จบ</span>';
   const off = spotOffset();
-  const mt5 = off != null && (act || (!pre && s.result === 'open')) ? `<div class="mt5">≈ ราคา Spot/OANDA · เข้า ${fmt(s.entry - off)} · SL ${fmt(s.sl - off)} · TP ${fmt(s.tp - off)}</div>` : '';
+  const mt5 = off != null && s.result === 'open' ? `<div class="mt5">≈ ราคา Spot/OANDA · เข้า ${fmt(s.entry - off)} · SL ${fmt(s.sl - off)} · TP ${fmt(s.tp - off)}</div>` : '';
   const chips = s.trig.map(x => `<span class="t">⚡ ${esc(x)}</span>`).join('') + s.agree.filter(a => !s.trig.includes(a)).slice(0, 6).map(x => `<span class="a">✔ ${esc(x)}</span>`).join('') + s.against.slice(0, 3).map(x => `<span class="x">✖ ${esc(x)}</span>`).join('');
-  const why = cancelled ? `<div class="why">เหตุผลที่ยกเลิก: ${esc(s.reason || 'เงื่อนไขไม่ครบ')}${cancelled && s.result !== 'open' ? ` · ถ้าเข้าไว้: ${s.result === 'win' ? '✅ ถึง TP' : s.result === 'be' ? '🛡️ ออกที่ทุน' : '❌ โดน SL'}` : ''}</div>`
-    : act && s.pending ? `<div class="why warn">${esc(s.pending)} — จะยกเลิกถ้ายังไม่กลับมาภายใน ${CANCEL_AFTER_MS / 1000} วินาที</div>` : '';
-  const confLabel = act && s.liveConf != null && s.liveConf !== s.conf ? `${s.conf}% <span class="sub">(ตอนนี้ ${s.liveConf}%)</span>` : `${s.conf}%`;
-  return `<div class="sig ${s.dir}${pre ? ' pre' : ''}${cancelled ? ' off' : ''}${s.fresh ? ' new' : ''}" data-t="${s.t}">
-    <div class="row1"><span class="badge ${pre ? 'pre' + s.dir.toLowerCase() : s.dir.toLowerCase()}">${pre ? 'เตรียม ' : ''}${s.dir === 'BUY' ? '▲ BUY' : '▼ SELL'}</span>
+  const confLabel = `${s.conf}%`;
+  return `<div class="sig ${s.dir}${s.fresh ? ' new' : ''}" data-t="${s.t}">
+    <div class="row1"><span class="badge ${s.dir.toLowerCase()}">${s.dir === 'BUY' ? '▲ BUY' : '▼ SELL'}</span>
     <span class="chip ${s.long ? 'long' : 'short'}">${typeTh(s.long)}</span>${E.inGoodSession(s.t) ? '<span class="chip sess good" title="ช่วง London/NY 19:00–23:00 น. · สถิติย้อนหลังดีกว่าช่วงอื่น">🕖 ช่วงดี</span>' : '<span class="chip sess" title="นอกช่วง 19:00–23:00 น. · สถิติย้อนหลังแย่กว่า">นอกช่วงดี</span>'}${res}<span class="time">${fmtTime(s.t)} น.</span></div>
     <div class="levels"><div><small>จุดเข้า</small><b>${fmt(s.entry)}</b></div><div><small>Stop Loss</small><b class="down">${fmt(s.sl)}</b></div><div><small>Take Profit · RR 1:${s.rr}</small><b class="up">${fmt(s.tp)}</b></div></div>
     <div class="confRow">ความมั่นใจ<div class="confBar"><i style="width:${s.conf}%"></i></div><b>${confLabel}</b></div>
-    <div class="chips">${chips}</div>${why}${mt5}</div>`;
+    <div class="chips">${chips}</div>${mt5}</div>`;
 }
 // ---------- chat signals (published to signals.json from the chat routine) ----------
 function chatOffset(c) {   // chart price minus spot price for this signal
@@ -856,7 +806,7 @@ function renderSignals() {
     listHtml = html; $('signals').innerHTML = html;
     document.querySelectorAll('.sig').forEach(el => el.onclick = () => focusTime(num(el.dataset.t)));
   }
-  state.signals.forEach(s => s.fresh = false); Object.values(state.pre).forEach(p => p && (p.fresh = false));
+  state.signals.forEach(s => s.fresh = false);
 }
 function focusTime(t) { const i = state.bars.findIndex(b => b.t === t); if (i >= 0) chart.timeScale().setVisibleLogicalRange({from: i - 60, to: i + 30}); }
 
@@ -996,13 +946,13 @@ let tvSigMin = false;
 function renderTvSig() {
   if (state.view !== 'oanda') return;
   const off = spotOffset(), o = off == null ? 0 : off, cards = state.src ? webCards() : [];
-  const pre = cards.find(c => c.kind === 'pre' && c.status === 'รอปิดแท่ง'), confOpen = cards.find(c => c.kind === 'confirmed' && c.result === 'open');
+  const confOpen = cards.find(c => c.kind === 'confirmed' && c.result === 'open');
   const chat = state.chat.length ? state.chat[state.chat.length - 1] : null;
   const row = (label, dir, typ, e, sl, tp, extra) => `<div style="margin-top:6px"><span class="badge ${dir.toLowerCase()}">${dir === 'BUY' ? '▲ BUY' : '▼ SELL'}</span> <span class="chip ${typ === 'ถือยาว' ? 'long' : 'short'}">${typ}</span> <span class="sub">${label}</span>
     <div class="lvl"><span>เข้า <b>${fmt(e)}</b></span><span class="down">SL <b>${fmt(sl)}</b></span><span class="up">TP <b>${fmt(tp)}</b></span>${extra || ''}</div></div>`;
   let body = '';
-  const sig = pre || confOpen;
-  if (sig) body += row(`${pre ? 'เตรียมเข้า' : 'ยืนยัน'} ${fmtTime(sig.t)} น. · ${sig.conf}%`, sig.dir, typeTh(sig.long), sig.entry - o, sig.sl - o, sig.tp - o);
+  const sig = confOpen;
+  if (sig) body += row(`ยืนยัน ${fmtTime(sig.t)} น. · ${sig.conf}%`, sig.dir, typeTh(sig.long), sig.entry - o, sig.sl - o, sig.tp - o);
   if (chat) { const st = chatStatus(chat); body += row(`★ จากแชท ส่ง ${fmtTime(chat.sent)} น.`, chat.side, chat.type === 'hold' ? 'ถือยาว' : 'เก็บสั้นๆ', chat.entry, chat.sl, chat.tp,
     `<span class="sub">${chatLabel(st, chat).replace(/<[^>]+>/g, '')}</span>`); }
   if (!body) body = '<div class="sub" style="margin-top:4px">ยังไม่มีสัญญาณที่เปิดอยู่</div>';
@@ -1173,8 +1123,8 @@ function statRow(name, rows) {
 const TH_HEAD = '<tr><th>กลุ่ม</th><th>ทั้งหมด</th><th>จบแล้ว</th><th>ถึง TP</th><th>Win%</th><th>เฉลี่ย/ไม้</th></tr>';
 function openStats(scope) {
   scope = scope || 'all';
-  const all = LOG.filter(r => scope === 'all' || (scope === 'live' ? r.origin === 'live' : r.src === state.src && r.tf === state.tf));
-  const conf = all.filter(r => r.stage === 'confirmed'), pre = all.filter(r => r.stage === 'pre');
+  const all = LOG.filter(r => r.stage === 'confirmed').filter(r => scope === 'all' || (scope === 'live' ? r.origin === 'live' : r.src === state.src && r.tf === state.tf));
+  const conf = all;
   const bucket = (lo, hi) => conf.filter(r => r.conf >= lo && r.conf < hi);
   $('modalBox').innerHTML = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap"><h2>📊 สถิติและบันทึกสัญญาณ</h2>
     <div><select id="scopeSel"><option value="all">ทั้งหมด</option><option value="live">เฉพาะสัญญาณสด (ไม่รวมย้อนหลัง)</option><option value="cur">เฉพาะ ${state.tf} · ${SOURCES[state.src] ? SOURCES[state.src].short : ''}</option></select>
@@ -1182,13 +1132,12 @@ function openStats(scope) {
     <div class="sub">บันทึกในเบราว์เซอร์เครื่องนี้ (localStorage) ${LOG.length} รายการ · ผลลัพธ์ตัดสินจากแท่งเทียนจริงหลังสัญญาณ (ถ้าแท่งเดียวโดนทั้ง SL และ TP นับว่าโดน SL) · ไม่รวมสเปรด/ค่าธรรมเนียม</div>
     <h3>ตามประเภท</h3><table>${TH_HEAD}
     ${statRow('ยืนยัน · เก็บสั้นๆ', conf.filter(r => !r.long))}${statRow('ยืนยัน · ถือยาว', conf.filter(r => r.long))}${statRow('ยืนยัน · รวม', conf)}
-    ${statRow('เตรียมเข้า · เก็บสั้นๆ', pre.filter(r => !r.long))}${statRow('เตรียมเข้า · ถือยาว', pre.filter(r => r.long))}
-    ${statRow('เตรียมเข้า → ยืนยันแล้ว', pre.filter(r => r.status === 'ยืนยันแล้ว'))}${statRow('เตรียมเข้า → ยกเลิก', pre.filter(r => (r.status || '').startsWith('ยกเลิก')))}</table>
+</table>
     <h3>สัญญาณยืนยัน ตามคะแนนความมั่นใจ</h3><table>${TH_HEAD}
     ${statRow('50–59%', bucket(0, 60))}${statRow('60–69%', bucket(60, 70))}${statRow('70–79%', bucket(70, 80))}${statRow('80%+', bucket(80, 101))}</table>
     <h3>ตาม BUY / SELL</h3><table>${TH_HEAD}${statRow('BUY', conf.filter(r => r.dir === 'BUY'))}${statRow('SELL', conf.filter(r => r.dir === 'SELL'))}</table>
     <h3>รายการล่าสุด</h3><table><tr><th>เวลาแท่ง</th><th>TF</th><th>ขั้น</th><th>ฝั่ง</th><th>ประเภท</th><th>%</th><th>เข้า</th><th>SL</th><th>TP</th><th>ผล</th></tr>
-    ${all.slice(-40).reverse().map(r => `<tr><td>${fmtTime(r.t)}</td><td>${r.tf}</td><td>${r.stage === 'pre' ? 'เตรียม' : 'ยืนยัน'}${r.origin === 'history' ? ' (ย้อนหลัง)' : ''}</td><td class="${r.dir === 'BUY' ? 'up' : 'down'}">${r.dir}</td><td>${r.type}</td><td>${r.conf}</td><td>${fmt(r.entry)}</td><td>${fmt(r.sl)}</td><td>${fmt(r.tp)}</td><td>${r.result === 'win' ? '✅' : r.result === 'loss' ? '❌' : r.result === 'be' ? '🛡️' : '⏳'}</td></tr>`).join('')}</table>`;
+    ${all.slice(-40).reverse().map(r => `<tr><td>${fmtTime(r.t)}</td><td>${r.tf}</td><td>ยืนยัน${r.origin === 'history' ? ' (ย้อนหลัง)' : ''}</td><td class="${r.dir === 'BUY' ? 'up' : 'down'}">${r.dir}</td><td>${r.type}</td><td>${r.conf}</td><td>${fmt(r.entry)}</td><td>${fmt(r.sl)}</td><td>${fmt(r.tp)}</td><td>${r.result === 'win' ? '✅' : r.result === 'loss' ? '❌' : r.result === 'be' ? '🛡️' : '⏳'}</td></tr>`).join('')}</table>`;
   $('modal').style.display = 'flex';
   $('scopeSel').value = scope; $('scopeSel').onchange = e => openStats(e.target.value);
   $('closeBtn').onclick = () => $('modal').style.display = 'none';
@@ -1198,9 +1147,9 @@ function openStats(scope) {
 $('statsBtn').onclick = () => { saveLog(); openStats('all'); };
 $('modal').onclick = e => { if (e.target.id === 'modal') $('modal').style.display = 'none'; };
 function exportCSV() {
-  const cols = ['signal_time_bkk', 'logged_at_bkk', 'source', 'timeframe', 'stage', 'pre_status', 'origin', 'direction', 'type', 'confidence_pct', 'entry', 'sl', 'tp', 'rr', 'result', 'result_time_bkk', 'triggers', 'factors_agree', 'factors_against'];
+  const cols = ['signal_time_bkk', 'logged_at_bkk', 'source', 'timeframe', 'stage', 'origin', 'direction', 'type', 'confidence_pct', 'entry', 'sl', 'tp', 'rr', 'result', 'result_time_bkk', 'triggers', 'factors_agree', 'factors_against'];
   const q = v => { v = v == null ? '' : String(v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
-  const rows = LOG.map(r => [bkk(r.t, true), bkk(r.loggedAt, true), r.src, r.tf, r.stage, r.status || '', r.origin, r.dir, r.type, r.conf, r.entry, r.sl, r.tp, r.rr, r.result, r.resultAt ? bkk(r.resultAt, true) : '', r.trig, r.agree, r.against].map(q).join(','));
+  const rows = LOG.filter(r => r.stage === 'confirmed').map(r => [bkk(r.t, true), bkk(r.loggedAt, true), r.src, r.tf, r.stage, r.origin, r.dir, r.type, r.conf, r.entry, r.sl, r.tp, r.rr, r.result, r.resultAt ? bkk(r.resultAt, true) : '', r.trig, r.agree, r.against].map(q).join(','));
   const blob = new Blob(['\ufeff' + cols.join(',') + '\n' + rows.join('\n')], {type: 'text/csv;charset=utf-8'});
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `xau-signals-${new Date().toISOString().slice(0, 10)}.csv`; a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);

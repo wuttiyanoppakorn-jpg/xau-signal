@@ -1,8 +1,8 @@
 {
  "version": 1,
  "basis": "spot XAU/USD",
- "updated_utc": "2026-10-08T06:07:14Z",
- "count": 20,
+ "updated_utc": "2026-10-08T06:27:42Z",
+ "count": 21,
  "signals": [
   {
    "id": "23dceab284aa",
@@ -474,7 +474,7 @@
    "weak": false,
    "rr": 1.5,
    "result": "open",
-   "mfe_r": 1.275,
+   "mfe_r": 1.487,
    "mae_r": 0.0,
    "engine": true
   },
@@ -497,6 +497,30 @@
    "conf_final": 75,
    "weak": false,
    "rr": 2.5,
+   "result": "open",
+   "mfe_r": 0.286,
+   "mae_r": -0.188,
+   "engine": true
+  },
+  {
+   "id": "ff5b2b949a02",
+   "sent": 1791440820,
+   "sent_bkk": "2026-10-08 13:27",
+   "t": 1791440400,
+   "data_bkk": "2026-10-08 13:20",
+   "side": "SELL",
+   "type": "scalp",
+   "entry": 4116.9,
+   "sl": 4121.7,
+   "tp": 4109.7,
+   "setup": "Engine M5 confluence (same as website) conf 80%, memory adj -2 -> 78%; triggers: ถูกกดจาก แนวต้าน swing 4121.80; agree: เทรนด์ M1 ขาลง, เทรนด์ M5 ขาลง, เทรนด์ H1 ขาลง, เทรนด์ H4 ขาลง; against: เทรนด์ M15 ขาขึ้น (spot basis gold-api 4116.0, XAUT gap -4.2; chart bybit entry 4121.10)",
+   "xaut_gap": -4.2,
+   "basis": "spot",
+   "conf": 80,
+   "conf_adj": -2,
+   "conf_final": 78,
+   "weak": false,
+   "rr": 1.5,
    "result": "open",
    "engine": true
   }

@@ -1,8 +1,8 @@
 {
  "version": 1,
  "basis": "spot XAU/USD",
- "updated_utc": "2026-10-08T05:55:44Z",
- "count": 19,
+ "updated_utc": "2026-10-08T06:07:14Z",
+ "count": 20,
  "signals": [
   {
    "id": "23dceab284aa",
@@ -474,8 +474,30 @@
    "weak": false,
    "rr": 1.5,
    "result": "open",
-   "mfe_r": 1.19,
+   "mfe_r": 1.275,
    "mae_r": 0.0,
+   "engine": true
+  },
+  {
+   "id": "d9eea9c338a3",
+   "sent": 1791439620,
+   "sent_bkk": "2026-10-08 13:07",
+   "t": 1791439200,
+   "data_bkk": "2026-10-08 13:00",
+   "side": "SELL",
+   "type": "hold",
+   "entry": 4120.6,
+   "sl": 4132.8,
+   "tp": 4090.0,
+   "setup": "Engine M5 confluence (same as website) conf 77%, memory adj -2 -> 75%; triggers: Pin bar ขาลง (หางบนยาว); agree: เทรนด์ M1 ขาลง, เทรนด์ M5 ขาลง, เทรนด์ H1 ขาลง, เทรนด์ H4 ขาลง; against: StochRSI 6, ราคาเด้งจากขอบล่าง BB (spot basis gold-api 4119.9, XAUT gap -2.4; chart bybit entry 4123.00)",
+   "xaut_gap": -2.4,
+   "basis": "spot",
+   "conf": 77,
+   "conf_adj": -2,
+   "conf_final": 75,
+   "weak": false,
+   "rr": 2.5,
+   "result": "open",
    "engine": true
   }
  ]

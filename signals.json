@@ -1,7 +1,7 @@
 {
  "version": 1,
  "basis": "spot XAU/USD",
- "updated_utc": "2026-10-08T06:57:00Z",
+ "updated_utc": "2026-10-08T08:24:40Z",
  "count": 22,
  "signals": [
   {
@@ -505,7 +505,7 @@
    "rr": 2.5,
    "result": "open",
    "mfe_r": 0.384,
-   "mae_r": -0.482,
+   "mae_r": -0.744,
    "engine": true
   },
   {
@@ -557,7 +557,15 @@
    "conf_final": 64,
    "weak": false,
    "rr": 1.5,
-   "result": "open",
+   "result": "loss",
+   "result_t": 1791447600,
+   "result_bkk": "2026-10-08 15:20",
+   "r_net": -1.054,
+   "mfe_r": 1.08,
+   "mae_r": -1.0,
+   "minutes_to_result": 90,
+   "exit_price_spot": 4129.8,
+   "lesson_th": "❌ แพ้ -1.05R · ตัวเตือนที่ถูก: เทรนด์ M1, เทรนด์ M15, MACD · ที่พลาด: เทรนด์ M5, เทรนด์ H1, เทรนด์ H4 · เคยกำไร 1.1R ก่อนกลับมาโดน SL ควรเลื่อน SL บังทุนเมื่อได้ 1R",
    "engine": true
   }
  ]

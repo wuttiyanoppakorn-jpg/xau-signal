@@ -29,9 +29,9 @@
 - widget ของ TradingView โหลดเมื่อเปิดแท็บย่อยครั้งแรกเท่านั้น · `news.json` สร้างโดย `tools/fetch_news.py` (ไม่มี API key) ซึ่ง `publish_signals.py` เรียกตอน publish (ไม่เกินทุก 10 นาที, จำกัดเวลา ~5 วินาที, ปฏิทินดึงไม่เกินชั่วโมงละครั้ง, ถ้าดึงไม่ได้ก็ publish สัญญาณต่อตามปกติ)
 
 ## แหล่งข้อมูล
-- แท่งเทียน: **OANDA:XAUUSD** (M1/M5/M15/H1/H4 + D1 แบบวัน UTC ที่รวมจาก H1) ดึงจาก feed กราฟสาธารณะของ TradingView (ไม่ใช้ login/คีย์) โดย `tools/publish_candles.py` ทุกรอบ routine (5 นาที) แล้ว push ไปที่ branch `data` (`candles.json`) — หน้าเว็บอ่านผ่าน raw.githubusercontent.com (branch นี้ไม่ใช่ต้นทาง GitHub Pages จึงไม่ทำให้ Pages build ทุก 5 นาที)
-- แท่งที่กำลังวิ่ง: ขยับตามราคา Spot จาก gold-api.com (ทุก 5 วินาที) ที่ปรับฐานเป็น OANDA ด้วยส่วนต่าง ณ เวลาที่ publish · ใช้แสดงผลและมาตรวัดเท่านั้น ไม่ใช้ออกสัญญาณ
-- แท่ง OANDA ล่าช้าได้ราว 3–10 นาที (รอบ routine + แคช) · ถ้า routine ไม่ได้รัน หน้าเว็บจะขึ้นสถานะ "แท่ง OANDA ล่าช้า"
+- แท่งเทียน: **OANDA:XAUUSD** (M1/M5/M15/H1/H4 + D1 แบบวัน UTC ที่รวมจาก H1) ดึงจาก feed กราฟสาธารณะของ TradingView (ไม่ใช้ login/คีย์) โดย `tools/candle_daemon.py` ทุก 1 นาที (routine คอยปลุกให้ทำงาน) แล้ว push ไปที่ branch `data` (`candles.json` + `live/<นาที>.json` ที่ raw ส่งแบบสดเพราะเป็น path ใหม่ทุกนาที) — หน้าเว็บอ่านผ่าน raw.githubusercontent.com (branch นี้ไม่ใช่ต้นทาง GitHub Pages จึงไม่ทำให้ Pages build ทุก 5 นาที)
+- แท่งที่กำลังวิ่งบนกราฟลูกศร: แท่งของ OANDA เอง อัปเดตทุก 1 นาที (ไม่ผสมราคา Spot) · ราคาสดแบบเรียลไทม์ดูได้จากกล่องราคา OANDA และมุมมอง "📺 OANDA สด (TradingView)" ซึ่งเป็น widget ของ TradingView เอง (TradingView ไม่ยอมให้หน้าเว็บอื่นต่อ data websocket โดยตรง)
+- กราฟลูกศรช้ากว่า TradingView ราว 10–70 วินาที (เฉลี่ย ~35 วินาที) · ถ้า routine ไม่ได้รัน หน้าเว็บจะขึ้นสถานะ "แท่ง OANDA ล่าช้า"
 - ไม่ใช้ Bybit/OKX/Binance (XAUT/PAXG) บนหน้าเว็บอีกต่อไป (routine ในแชทยังมีไว้เป็นแหล่งสำรองฝั่งเซิร์ฟเวอร์เฉพาะตอน feed OANDA ล่ม และจะไม่ publish แท่งจากแหล่งสำรองขึ้นเว็บ)
 
 ## ผลทดสอบย้อนหลัง (สรุปตรงๆ)

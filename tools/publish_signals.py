@@ -11,6 +11,8 @@ sent.json format (list of objects): sent_bkk, data_bkk ("YYYY-MM-DD HH:MM", Bang
 side (BUY/SELL), type (scalp/hold), entry, sl, tp (spot XAU/USD prices), setup (text).
 Optional (run_cycle.py): conf, conf_adj, conf_final, weak, result, result_bkk, r_net, mfe_r, mae_r, lesson_th, gap_spot_minus_chart, engine_key.
 Also commits the public journal/ mirror (outcomes + lessons, market data only) when it changed.
+Also refreshes news.json (tools/fetch_news.py: public RSS headlines + weekly calendar for the 📰 ข่าว tab) when it is
+older than 10 min: hard ~5 s budget, a news failure never blocks publishing signals.
 """
 import argparse, datetime as dt, hashlib, json, pathlib, re, subprocess, sys
 
@@ -62,6 +64,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--src", default="/workspace/xau-signals/sent.json")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--no-news", action="store_true", help="skip the news.json refresh")
     a = ap.parse_args()
     rows = json.loads(pathlib.Path(a.src).read_text(encoding="utf-8"))
     if not isinstance(rows, list):
@@ -75,7 +78,8 @@ def main():
         except Exception:
             old = []
     journal = REPO / "journal"
-    if old == signals and not journal_dirty(journal):
+    news_due = (not a.no_news) and news_is_due()
+    if old == signals and not journal_dirty(journal) and not news_due:
         print(f"no change ({len(signals)} signals) - nothing to publish")
         return
     new_ids = {s["id"] for s in signals} - {s.get("id") for s in old}
@@ -90,7 +94,11 @@ def main():
         doc = {"version": 1, "basis": "spot XAU/USD", "updated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                "count": len(signals), "signals": signals}
         dst.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
+    if news_due:
+        refresh_news()
     git("add", "signals.json")
+    if (REPO / "news.json").exists():
+        git("add", "news.json")
     if journal.exists():
         git("add", "journal")
     if subprocess.run(["git", "-C", str(REPO), "diff", "--cached", "--quiet"]).returncode == 0:
@@ -99,6 +107,22 @@ def main():
     git("commit", "-q", "-m", f"Update chat signals ({len(signals)} total, {len(new_ids)} new)")
     git("push", "-q")
     print(f"published {len(signals)} signals ({len(new_ids)} new) -> {git('rev-parse', '--short', 'HEAD')}")
+
+def news_is_due():
+    try:
+        sys.path.insert(0, str(REPO / "tools"))
+        import fetch_news
+        return fetch_news.is_due()
+    except Exception as e:
+        print("warning: news check failed:", e, file=sys.stderr)
+        return False
+
+def refresh_news():
+    try:
+        import fetch_news
+        fetch_news.refresh()
+    except Exception as e:   # never block signal publishing
+        print("warning: news refresh failed:", e, file=sys.stderr)
 
 def journal_dirty(journal):
     if not journal.exists():

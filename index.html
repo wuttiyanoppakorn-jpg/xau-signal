@@ -183,6 +183,42 @@
   td:first-child,th:first-child{text-align:left}
   th{color:var(--muted);font-weight:500;font-size:11.5px}
   .tblWrap{overflow-x:auto}
+  /* news tab (เทรดชนข่าว) */
+  #newsPanel{display:none;padding:4px 12px 12px}
+  .sigPanel.tab-news #newsPanel{display:block}
+  .sigPanel.tab-news #signals{display:none}
+  .nextEv{display:flex;gap:10px;align-items:center;margin:4px 0 10px;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.035);border:1px solid var(--stroke);font-size:12.5px;line-height:1.5}
+  .nextEv .ic{font-size:20px;flex:none}
+  .nextEv b{font-family:var(--font-h);font-weight:500}
+  .nextEv .cd{margin-left:auto;flex:none;font-family:var(--font-h);font-size:15px;color:var(--gold);text-align:right;white-space:nowrap}
+  .nextEv.hot{border-color:rgba(255,92,122,.55);background:linear-gradient(135deg,rgba(255,92,122,.13),rgba(255,255,255,.02));animation:glow 2s ease-in-out infinite}
+  .nextEv.hot .cd{color:var(--red)}
+  .nTabs{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+  .nTabs button{flex:1;background:rgba(255,255,255,.04);border:1px solid var(--stroke);color:var(--muted);font-family:var(--font-h);font-size:12.5px;padding:5px 8px;border-radius:9px;cursor:pointer;white-space:nowrap}
+  .nTabs button.active{color:var(--gold);border-color:rgba(246,196,83,.45);background:rgba(246,196,83,.1)}
+  .nPane{display:none}.nPane.active{display:block}
+  .tvNews{height:620px;border-radius:12px;overflow:hidden;background:rgba(0,0,0,.15)}
+  .tvNews iframe{border:0}
+  .nNote{font-size:11px;color:var(--dim);line-height:1.5;margin:6px 2px 0}
+  .nFilter{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px}
+  .nFilter button{background:none;border:1px solid var(--stroke);color:var(--muted);font-size:11.5px;padding:2px 9px;border-radius:20px;cursor:pointer;font-family:var(--font)}
+  .nFilter button.active{color:var(--text);border-color:var(--stroke2);background:rgba(255,255,255,.07)}
+  .nItem{display:block;text-decoration:none;color:var(--text);padding:8px 10px;margin:0 0 6px;border-radius:11px;background:rgba(255,255,255,.03);border:1px solid var(--stroke);transition:border-color .2s,background .2s}
+  .nItem:hover{border-color:var(--stroke2);background:rgba(255,255,255,.055)}
+  .nItem .ti{font-size:13px;line-height:1.5}
+  .nItem .me{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:4px;font-size:10.5px;color:var(--muted)}
+  .nItem.fresh{border-color:rgba(246,196,83,.4)}
+  .tg{padding:1px 6px;border-radius:6px;background:rgba(255,255,255,.06)}
+  .tg.gold{background:rgba(246,196,83,.13);color:#f8d98a}.tg.fed{background:rgba(155,128,255,.15);color:#c6b6ff}.tg.data{background:rgba(91,140,255,.14);color:#a9c2ff}
+  .tg.geo{background:rgba(255,92,122,.12);color:#ff9fb1}.tg.usd{background:rgba(34,201,147,.1);color:#8fe3c3}
+  .evRow{display:grid;grid-template-columns:62px 1fr auto;gap:8px;align-items:center;padding:6px 8px;border-bottom:1px solid var(--stroke);font-size:12px}
+  .evRow .tm{font-variant-numeric:tabular-nums;color:var(--muted)}
+  .evRow .nm small{display:block;color:var(--muted);font-size:10.5px}
+  .evRow .fc{font-size:10.5px;color:var(--muted);text-align:right;white-space:nowrap}
+  .evRow.past{opacity:.45}
+  .imp{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:middle}
+  .imp.High{background:var(--red);box-shadow:0 0 6px var(--red)}.imp.Medium{background:#f5a524}
+  .evDay{font-family:var(--font-h);font-size:12px;color:var(--gold);margin:10px 2px 2px}
   @media (max-width:1100px){main{grid-template-columns:minmax(0,1fr) 360px}}
   @media (max-width:900px){
     header{position:static;padding:10px 12px;gap:8px}
@@ -205,6 +241,8 @@
     .sigPanel{overflow:visible}
     #toasts{left:10px;right:10px;top:auto;bottom:12px}
     .toast{max-width:none}
+    .tvNews{height:72vh}
+    .sigHead .tabs button{padding:5px 8px}
   }
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
@@ -262,8 +300,20 @@
       </div>
     </div>
     <div class="glass sigPanel">
-      <div class="sigHead"><div class="tabs"><button data-tab="web" id="tabWeb" class="active">สัญญาณเว็บ</button><button data-tab="chat" id="tabChat">★ จากแชท</button></div><span class="sub" id="sigCount"></span></div>
+      <div class="sigHead"><div class="tabs"><button data-tab="web" id="tabWeb" class="active">สัญญาณเว็บ</button><button data-tab="chat" id="tabChat">★ จากแชท</button><button data-tab="news" id="tabNews" title="เทรดชนข่าว: ข่าวทองคำ/เศรษฐกิจ + ปฏิทินข่าวแรง">📰 ข่าว</button></div><span class="sub" id="sigCount"></span></div>
       <div id="signals"></div>
+      <div id="newsPanel">
+        <div class="nextEv" id="nextEv"><span class="ic">🗓</span><span>กำลังโหลดปฏิทินข่าว...</span></div>
+        <div class="nTabs" id="nTabs"><button data-n="heads">⚡ ข่าวล่าสุด</button><button data-n="cal">🗓 ปฏิทินข่าว</button><button data-n="tv">📈 บทวิเคราะห์ทอง</button></div>
+        <div class="nPane" data-n="tv"><div class="tvNews" id="tvTimeline"></div>
+          <div class="nNote">บทวิเคราะห์ทองคำ (Top Stories XAU/USD) จาก TradingView · ภาษาอังกฤษ · TradingView ลงบทความชุดนี้ไม่บ่อย (ราวสัปดาห์ละครั้ง) ข่าวด่วนให้ดูแท็บ ⚡ ข่าวล่าสุด</div></div>
+        <div class="nPane" data-n="cal"><div id="evList"></div>
+          <div class="sectionLabel" style="margin-top:14px">ปฏิทินเศรษฐกิจ TradingView (สำคัญปานกลาง–สูง)</div>
+          <div class="tvNews" id="tvCalendar"></div>
+          <div class="nNote">เวลาเป็นเวลาไทย · 🔴 = ข่าวแรง ทองมักวิ่งแรง/สเปรดกว้างช่วง ±15 นาทีรอบเวลาประกาศ · สัญญาณเทคนิคช่วงนั้นเชื่อถือได้น้อยลง</div></div>
+        <div class="nPane" data-n="heads"><div class="nFilter" id="nFilter"></div><div id="headList"></div>
+          <div class="nNote" id="headNote"></div></div>
+      </div>
       <div class="disclaimer">⚠️ สัญญาณเป็นการวิเคราะห์ทางเทคนิคอัตโนมัติ ไม่ใช่คำแนะนำการลงทุนและไม่รับประกันกำไร ผลทดสอบย้อนหลังยังไม่พบความได้เปรียบที่ชัดเจนหลังหักสเปรด · "เตรียมเข้า" อาจหายไปก่อนแท่งปิด · เทียบราคากับ MT5 และใช้ Stop Loss ทุกครั้ง</div>
     </div>
   </aside>
@@ -736,7 +786,7 @@ for (const tf of Object.keys(TFS)) {
 function movePill() { const b = document.querySelector('#tfs button.active'), pill = $('tfPill'); if (b) { pill.style.left = b.offsetLeft + 'px'; pill.style.width = b.offsetWidth + 'px'; } }
 window.addEventListener('resize', () => { movePill(); setView(state.view); }); if (document.fonts) document.fonts.ready.then(movePill);
 $('srcSel').onchange = e => { state.srcPref = e.target.value; localStorage.setItem('xau_src', state.srcPref); start(); };
-document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { state.tab = b.dataset.tab; listHtml = ''; renderSignals(); });
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { state.tab = b.dataset.tab; listHtml = ''; applyTab(); renderSignals(); });
 $('thr').oninput = e => { state.threshold = +e.target.value; $('thrV').textContent = state.threshold + '%'; localStorage.setItem('xau_thr', state.threshold); rebuildSignals(false); };
 
 // ======================= alerts: sound + browser notification =======================
@@ -1130,6 +1180,7 @@ function renderSignals() {
   const done = conf.filter(s => s.result !== 'open'), wins = done.filter(s => s.result === 'win').length;
   $('tabWeb').textContent = `สัญญาณเว็บ (${cards.length})`; $('tabChat').textContent = `★ จากแชท (${state.chat.length})`;
   document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
+  if (state.tab === 'news') { $('sigCount').textContent = newsCountText(); renderTvSig(); return; }   // news tab: signal list untouched
   $('sigCount').textContent = state.tab === 'web' ? `ยืนยัน ${conf.length} · ชนะย้อนหลัง ${done.length ? Math.round(100 * wins / done.length) : 0}% (${wins}/${done.length})` : (state.chatUpdated ? `อัปเดต ${fmtTime(Date.parse(state.chatUpdated) / 1000)} น.` : '');
   const html = state.tab === 'web'
     ? (cards.length ? cards.slice(0, 50).map(sigHtml).join('') : '<div class="empty">ยังไม่พบสัญญาณที่ผ่านเกณฑ์ในข้อมูลช่วงนี้<br>ลองลดความมั่นใจขั้นต่ำ</div>')
@@ -1295,6 +1346,157 @@ function renderTvSig() {
     $('tvSigBtn').onclick = () => { tvSigMin = !tvSigMin; $('tvSig').dataset.h = ''; renderTvSig(); }; }
 }
 setInterval(renderTvSig, 3000);
+
+// ======================= news tab: เทรดชนข่าว =======================
+// Live feed + calendar are TradingView embed widgets (iframes, lazy-loaded when first opened). Headlines + next high-impact
+// event come from news.json, written by tools/fetch_news.py (public RSS + ForexFactory weekly calendar) on each signal publish.
+const NEWS = {data: null, sub: localStorage.getItem('xau_news_sub') || 'heads', filt: 'all', mounted: {}, loadedAt: 0, live: [], liveAt: 0, liveErr: 0};
+if (!['heads', 'cal', 'tv'].includes(NEWS.sub)) NEWS.sub = 'heads';
+// Fetched straight from the browser (these public feeds send Access-Control-Allow-Origin: *), every 2 min while the tab is open
+const LIVE_FEEDS = [['https://feeds.content.dowjones.io/public/rss/mw_bulletins', 'MarketWatch'], ['https://feeds.content.dowjones.io/public/rss/mw_topstories', 'MarketWatch'],
+  ['https://feeds.content.dowjones.io/public/rss/RSSMarketsMain', 'WSJ Markets'], ['https://feeds.content.dowjones.io/public/rss/RSSWorldNews', 'WSJ World']];
+const NTAGS = [['gold', /\bgold\b|xau|bullion|ทอง/i], ['fed', /\bfed\b|fomc|powell|federal reserve|rate (cut|hike|decision)|interest rate|central bank|\becb\b|\bboj\b|pboc|\bboe\b|ดอกเบี้ย|เฟด|ธนาคารกลาง/i],
+  ['data', /\bcpi\b|\bppi\b|\bpce\b|inflation|payroll|\bnfp\b|jobs report|unemployment|jobless|\bgdp\b|retail sales|\bism\b|\bpmi\b|jolts|เงินเฟ้อ|จ้างงาน|ว่างงาน/i],
+  ['geo', /\bwar\b|missile|attack|sanction|tariff|geopolit|israel|iran|russia|ukraine|middle east|gaza|taiwan|north korea|houthi|conflict|ceasefire|drone|สงคราม|ภูมิรัฐศาสตร์/i],
+  ['usd', /dollar|\busd\b|dxy|treasur|yields?\b|ดอลลาร์|บอนด์|พันธบัตร/i]];
+const normT = t => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim().slice(0, 90);
+async function fetchLiveFeed([url, label]) {
+  const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 8000);
+  try {
+    const r = await fetch(url, {signal: ctl.signal, cache: 'no-store'}); if (!r.ok) throw new Error('HTTP ' + r.status);
+    const doc = new DOMParser().parseFromString(await r.text(), 'text/xml'), out = [];
+    for (const it of doc.querySelectorAll('item')) {
+      const title = (it.querySelector('title') || {}).textContent || '', link = (it.querySelector('link') || {}).textContent || '', t = Date.parse((it.querySelector('pubDate') || {}).textContent || '') / 1000;
+      if (!title.trim() || !t || !/^https?:/.test(link.trim())) continue;
+      const tags = NTAGS.filter(([, rx]) => rx.test(title)).map(([k]) => k);
+      if (!tags.length) continue;   // keep only gold / rates / data / geopolitics / dollar-moving headlines
+      out.push({t: Math.floor(t), title: title.trim(), url: link.trim(), source: label, lang: 'en', tags, live: true});
+    }
+    return out;
+  } finally { clearTimeout(to); }
+}
+async function loadLiveNews() {
+  NEWS.liveAt = Date.now();
+  const res = await Promise.allSettled(LIVE_FEEDS.map(fetchLiveFeed));
+  const ok = res.filter(r => r.status === 'fulfilled');
+  NEWS.liveErr = res.length - ok.length;
+  if (ok.length) NEWS.live = ok.flatMap(r => r.value).filter(i => i.t > Date.now() / 1000 - 36 * 3600);
+  renderNews();
+}
+function allHeadlines() {
+  const seen = new Set(), out = [];
+  for (const i of [...NEWS.live, ...(NEWS.data ? NEWS.data.items : [])].sort((a, b) => b.t - a.t)) {
+    const k = normT(i.title); if (seen.has(k) || i.t > Date.now() / 1000 + 600) continue; seen.add(k); out.push(i);
+  }
+  return out;
+}
+const CCY_FLAG = {USD: '🇺🇸', EUR: '🇪🇺', GBP: '🇬🇧', JPY: '🇯🇵', CNY: '🇨🇳', CHF: '🇨🇭', AUD: '🇦🇺', CAD: '🇨🇦', NZD: '🇳🇿', All: '🌐'};
+const TAG_TH = {gold: '🥇 ทองคำ', fed: '🏦 เฟด/ดอกเบี้ย', data: '📊 ตัวเลขเศรษฐกิจ', geo: '🌍 ภูมิรัฐศาสตร์', usd: '💵 ดอลลาร์/บอนด์'};
+const EV_TH = [[/non-?farm/i, 'การจ้างงานนอกภาคเกษตร (NFP)'], [/fomc.*minutes/i, 'บันทึกการประชุมเฟด'], [/powell|fed chair/i, 'ประธานเฟดกล่าวสุนทรพจน์'],
+  [/trump/i, 'ทรัมป์กล่าวสุนทรพจน์'], [/(member|gov\b|governor|lagarde|ueda|bailey).*(speaks|testifies)/i, 'ผู้บริหารธนาคารกลางพูด'],
+  [/fomc|federal funds|fed interest rate/i, 'ประชุม/ตัดสินดอกเบี้ยเฟด'], [/inflation expectations/i, 'คาดการณ์เงินเฟ้อ'], [/core cpi|\bcpi\b/i, 'เงินเฟ้อผู้บริโภค (CPI)'], [/\bppi\b/i, 'ดัชนีราคาผู้ผลิต (PPI)'], [/pce/i, 'เงินเฟ้อ PCE (ตัวที่เฟดดู)'],
+  [/unemployment claims|jobless/i, 'ผู้ขอรับสวัสดิการว่างงาน'], [/unemployment rate/i, 'อัตราว่างงาน'], [/average hourly/i, 'ค่าจ้างรายชั่วโมง'], [/\bgdp\b/i, 'GDP'],
+  [/retail sales/i, 'ยอดค้าปลีก'], [/\bism\b|\bpmi\b/i, 'ดัชนีภาคการผลิต/บริการ (PMI)'], [/jolts/i, 'ตำแหน่งงานว่าง (JOLTS)'], [/adp/i, 'จ้างงานภาคเอกชน ADP'],
+  [/rate (decision|statement)|refinancing rate|cash rate|bank rate|policy rate/i, 'ตัดสินดอกเบี้ยธนาคารกลาง'], [/speaks|testifies/i, 'มีการกล่าวสุนทรพจน์'],
+  [/consumer sentiment|consumer confidence/i, 'ความเชื่อมั่นผู้บริโภค'], [/crude oil/i, 'สต็อกน้ำมันดิบ']];
+const evTh = t => { for (const [rx, th] of EV_TH) if (rx.test(t)) return th; return ''; };
+const agoTh = t => { const m = Math.max(0, Math.round((Date.now() / 1000 - t) / 60)); return m < 1 ? 'เมื่อสักครู่' : m < 60 ? `${m} นาทีที่แล้ว` : m < 1440 ? `${Math.floor(m / 60)} ชม.ที่แล้ว` : `${Math.floor(m / 1440)} วันที่แล้ว`; };
+const inTh = s => { s = Math.max(0, Math.round(s / 60)); const h = Math.floor(s / 60), m = s % 60; return h >= 24 ? `${Math.floor(h / 24)} วัน ${h % 24} ชม.` : h ? `${h} ชม. ${m} นาที` : `${m} นาที`; };
+const safeUrl = u => /^https?:\/\//i.test(u || '') ? u : '#';
+function applyTab() {
+  const news = state.tab === 'news';
+  document.querySelector('.sigPanel').classList.toggle('tab-news', news);
+  document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('active', b.dataset.tab === state.tab));
+  if (news) { if (Date.now() - NEWS.loadedAt > 120000) loadNews(); if (Date.now() - NEWS.liveAt > 110000) loadLiveNews(); setNewsSub(NEWS.sub); $('sigCount').textContent = newsCountText(); }
+}
+function newsCountText() {
+  const n = allHeadlines().length; if (!n && !NEWS.data) return 'กำลังโหลดข่าว...';
+  return `ข่าว ${n} หัวข้อ · ${NEWS.liveAt ? 'ข่าวสดเช็คทุก 2 นาที' : ''}`;
+}
+function mountTvWidget(boxId, script, cfg) {
+  if (NEWS.mounted[boxId]) return; NEWS.mounted[boxId] = true;
+  const box = $(boxId); box.innerHTML = '';
+  const wrap = document.createElement('div'); wrap.className = 'tradingview-widget-container'; wrap.style.cssText = 'height:100%;width:100%';
+  const inner = document.createElement('div'); inner.className = 'tradingview-widget-container__widget'; inner.style.cssText = 'height:100%;width:100%';
+  const sc = document.createElement('script'); sc.type = 'text/javascript'; sc.async = true; sc.src = 'https://s3.tradingview.com/external-embedding/' + script;
+  sc.text = JSON.stringify(cfg);
+  wrap.appendChild(inner); wrap.appendChild(sc); box.appendChild(wrap);
+}
+function setNewsSub(n) {
+  NEWS.sub = n; localStorage.setItem('xau_news_sub', n);
+  document.querySelectorAll('#nTabs button').forEach(b => b.classList.toggle('active', b.dataset.n === n));
+  document.querySelectorAll('#newsPanel .nPane').forEach(p => p.classList.toggle('active', p.dataset.n === n));
+  if (n === 'tv') mountTvWidget('tvTimeline', 'embed-widget-timeline.js', {feedMode: 'symbol', symbol: 'OANDA:XAUUSD', colorTheme: 'dark', isTransparent: true,
+    displayMode: 'regular', width: '100%', height: '100%', locale: 'th_TH'});
+  if (n === 'cal') mountTvWidget('tvCalendar', 'embed-widget-events.js', {colorTheme: 'dark', isTransparent: true, width: '100%', height: '100%', locale: 'th_TH',
+    importanceFilter: '0,1', countryFilter: 'us,eu,gb,jp,cn,de,ch,au,ca'});
+  renderNews();
+}
+document.querySelectorAll('#nTabs button').forEach(b => b.onclick = () => setNewsSub(b.dataset.n));
+async function loadNews() {
+  NEWS.loadedAt = Date.now();
+  const url = (location.protocol.startsWith('http') ? 'news.json' : 'https://wuttiyanoppakorn-jpg.github.io/xau-signal/news.json') + '?t=' + Date.now();
+  try { const j = await getJSON(url, 8000); if (j && Array.isArray(j.items)) { NEWS.data = Object.assign({calendar: []}, j); renderNews(); } }
+  catch (e) { console.warn('news.json unavailable', e.message); renderNews(); }
+}
+function nextHigh() {
+  const d = NEWS.data, now = Date.now() / 1000; if (!d) return null;
+  return (d.calendar || []).find(e => e.impact === 'High' && e.t > now - 15 * 60) || null;
+}
+function renderNextEv() {
+  const d = NEWS.data, now = Date.now() / 1000, ev = nextHigh(), box = $('nextEv');
+  const soon = ev && ev.t - now < 3600;
+  $('tabNews').textContent = soon ? '📰 ข่าว 🔴' : '📰 ข่าว';
+  $('tabNews').title = ev ? `ข่าวแรงถัดไป: ${ev.ccy} ${ev.title} · ${fmtTime(ev.t)} น.` : 'เทรดชนข่าว: ข่าวทองคำ/เศรษฐกิจ + ปฏิทินข่าวแรง';
+  if (state.tab !== 'news') return;
+  let html;
+  if (!d) html = '<span class="ic">🗓</span><span class="sub">กำลังโหลดปฏิทินข่าว...</span>';
+  else if (!ev) html = `<span class="ic">🟢</span><span>ไม่มีข่าวแรง (🔴) ที่เหลือในปฏิทินสัปดาห์นี้${(d.calendar || []).length ? '' : ' <span class="sub">(ยังไม่มีข้อมูลปฏิทิน · ดูแท็บ 🗓 ปฏิทินข่าว)</span>'}</span>`;
+  else {
+    const dt = ev.t - now, th = evTh(ev.title);
+    html = `<span class="ic">${dt <= 0 ? '⚡' : '🔴'}</span><span>${dt <= 0 ? 'เพิ่งประกาศ · ระวังราคาสวิง' : 'ข่าวแรงถัดไป'}<br><b>${CCY_FLAG[ev.ccy] || ''} ${esc(ev.ccy)} ${esc(ev.title)}</b>${th ? ` <span class="sub">· ${esc(th)}</span>` : ''}
+      <br><span class="sub">${fmtTime(ev.t)} น.${ev.forecast ? ' · คาด ' + esc(ev.forecast) : ''}${ev.previous ? ' · ก่อนหน้า ' + esc(ev.previous) : ''}</span></span>
+      <span class="cd">${dt <= 0 ? agoTh(ev.t) : 'อีก ' + inTh(dt)}</span>`;
+  }
+  box.className = 'nextEv' + (ev && ev.t - now < 30 * 60 ? ' hot' : '');
+  if (box.dataset.h !== html) { box.dataset.h = html; box.innerHTML = html; }
+}
+function renderNews() {
+  renderNextEv();
+  if (state.tab !== 'news') return;
+  $('sigCount').textContent = newsCountText();
+  const d = NEWS.data, now = Date.now() / 1000;
+  if (NEWS.sub === 'cal') {
+    const evs = d ? (d.calendar || []).filter(e => e.t > now - 3 * 3600).slice(0, 40) : [];
+    let day = '', html = '';
+    for (const e of evs) {
+      const dl = new Date(e.t * 1000).toLocaleDateString('th-TH', {timeZone: 'Asia/Bangkok', weekday: 'short', day: 'numeric', month: 'short'});
+      if (dl !== day) { day = dl; html += `<div class="evDay">${dl}</div>`; }
+      const th = evTh(e.title);
+      html += `<div class="evRow${e.t < now ? ' past' : ''}"><span class="tm">${new Date(e.t * 1000).toLocaleTimeString('th-TH', {timeZone: 'Asia/Bangkok', hour: '2-digit', minute: '2-digit', hour12: false})} น.</span>
+        <span class="nm"><span class="imp ${e.impact}"></span>${CCY_FLAG[e.ccy] || ''} ${esc(e.ccy)} ${esc(e.title)}${th ? `<small>${esc(th)}</small>` : ''}</span>
+        <span class="fc">${e.forecast ? 'คาด ' + esc(e.forecast) : ''}${e.previous ? '<br>ก่อน ' + esc(e.previous) : ''}</span></div>`;
+    }
+    html = `<div class="sectionLabel" style="margin-top:2px">ข่าวสำคัญที่จะประกาศ (ForexFactory · 🔴 สูง 🟠 กลาง)</div>` + (html || '<div class="empty">ยังไม่มีข้อมูลปฏิทินจาก news.json · ดูปฏิทิน TradingView ด้านล่าง</div>');
+    if ($('evList').dataset.h !== html) { $('evList').dataset.h = html; $('evList').innerHTML = html; }
+  }
+  if (NEWS.sub === 'heads') {
+    const F = [['all', 'ทั้งหมด'], ['th', '🇹🇭 ไทย'], ['gold', TAG_TH.gold], ['fed', TAG_TH.fed], ['data', TAG_TH.data], ['geo', TAG_TH.geo]];
+    const fh = F.map(([k, l]) => `<button data-f="${k}" class="${NEWS.filt === k ? 'active' : ''}">${l}</button>`).join('');
+    if ($('nFilter').dataset.h !== fh) { $('nFilter').dataset.h = fh; $('nFilter').innerHTML = fh;
+      $('nFilter').querySelectorAll('button').forEach(b => b.onclick = () => { NEWS.filt = b.dataset.f; renderNews(); }); }
+    const all = allHeadlines(), items = all.filter(i => NEWS.filt === 'all' ? true : NEWS.filt === 'th' ? i.lang === 'th' : (i.tags || []).includes(NEWS.filt));
+    const html = items.length ? items.slice(0, 40).map(i => `<a class="nItem${now - i.t < 3600 ? ' fresh' : ''}" href="${esc(safeUrl(i.url))}" target="_blank" rel="noopener noreferrer">
+        <div class="ti">${esc(i.title)}</div><div class="me"><span>${esc(i.source)}</span><span>· ${agoTh(i.t)}</span>${(i.tags || []).map(t => `<span class="tg ${t}">${TAG_TH[t] || esc(t)}</span>`).join('')}</div></a>`).join('')
+      : `<div class="empty">${all.length ? 'ไม่มีหัวข้อข่าวในหมวดนี้' : 'กำลังโหลดหัวข้อข่าว...'}</div>`;
+    if ($('headList').dataset.h !== html) { $('headList').dataset.h = html; $('headList').innerHTML = html; }
+    $('headNote').textContent = `ข่าวสด: MarketWatch / WSJ ดึงตรงจากเบราว์เซอร์ทุก 2 นาที${NEWS.liveErr ? ` (โหลดไม่ได้ ${NEWS.liveErr} แหล่ง)` : ''}` +
+      (d ? ` · ข่าวไทย + Google News / FXStreet / Investing.com อัปเดต ${agoTh(d.fetched_at)} (รีเฟรชพร้อมสัญญาณใหม่/ผลไม้)` : '') + ' · ไม่ใช่คำแนะนำการลงทุน';
+  }
+}
+loadNews(); setInterval(() => { if (state.tab === 'news' || Date.now() - NEWS.loadedAt > 600000) loadNews(); }, 300000);
+setInterval(() => { if (state.tab === 'news' && !document.hidden) loadLiveNews(); }, 120000);
+setInterval(renderNextEv, 30000);
 
 // ======================= stats modal + CSV =======================
 function statRow(name, rows) {

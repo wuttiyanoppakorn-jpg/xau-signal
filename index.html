@@ -1055,8 +1055,11 @@ function chatStatus(c) {
   return {r: 'unknown', off};
 }
 function chatHtml(c) {
-  const st = chatStatus(c), now = state.lastPrice != null ? state.lastPrice - st.off : null;
+  // server-side outcome from run_cycle.py (fill check, expiry, same engine rules) wins over the in-browser estimate
+  const st0 = chatStatus(c), srv = ['win', 'loss', 'expired', 'not_filled'].includes(c.result) ? c.result : null;
+  const st = srv ? Object.assign({}, st0, {r: srv, at: c.result_t || st0.at}) : st0, now = state.lastPrice != null ? state.lastPrice - st.off : null;
   const res = st.r === 'win' ? `<span class="res win">✅ ถึง TP ${st.at ? fmtTime(st.at) + ' น.' : ''}</span>` : st.r === 'loss' ? `<span class="res loss">❌ โดน SL ${st.at ? fmtTime(st.at) + ' น.' : ''}</span>`
+    : st.r === 'expired' ? `<span class="res cancel">⌛ หมดเวลา ${c.r_net != null ? (c.r_net > 0 ? '+' : '') + c.r_net.toFixed(2) + 'R' : ''}</span>` : st.r === 'not_filled' ? '<span class="res cancel">⚪ ราคาไม่ถึงจุดเข้า</span>'
     : st.r === 'open' ? '<span class="res open">⏳ ยังไม่จบ</span>' : st.r === 'basis' ? '<span class="res cancel">⚠️ ราคาคนละฐาน · ไม่ตรวจผล</span>' : '<span class="res">ไม่มีข้อมูลแท่งเทียนพอตรวจผล</span>';
   const basisNote = st.r === 'basis' ? `<div class="why warn">จุดเข้า ${fmt(c.entry)} ห่างจากราคา Spot ตอนส่ง (≈ ${fmt(st.px)}) มาก — น่าจะอ้างอิงราคาทองฟิวเจอร์ส (GC) จึงไม่นำมาตรวจ TP/SL</div>` : '';
   const dist = st.r === 'open' && now != null ? `<div class="mt5">ราคาตอนนี้ ≈ Spot ${fmt(now)} · ห่าง TP ${Math.abs(c.tp - now).toFixed(2)} · ห่าง SL ${Math.abs(c.sl - now).toFixed(2)}</div>` : '';
@@ -1064,7 +1067,8 @@ function chatHtml(c) {
     <div class="row1"><span class="badge chatb">★ แชท</span><span class="badge ${c.side.toLowerCase()}">${c.side === 'BUY' ? '▲ BUY' : '▼ SELL'}</span>
     <span class="chip ${c.type === 'hold' ? 'long' : 'short'}">${c.type === 'hold' ? 'ถือยาว' : 'เก็บสั้นๆ'}</span>${res}<span class="time">ส่ง ${fmtTime(c.sent)} น.</span></div>
     <div class="levels"><div><small>จุดเข้า${c.basis === 'unspecified' ? '' : ' (Spot)'}</small><b>${fmt(c.entry)}</b></div><div><small>Stop Loss</small><b class="down">${fmt(c.sl)}</b></div><div><small>Take Profit · RR 1:${(Math.abs(c.tp - c.entry) / Math.abs(c.entry - c.sl)).toFixed(1)}</small><b class="up">${fmt(c.tp)}</b></div></div>
-    <div class="why chatwhy">💬 ${esc(c.setup || '')}</div>${basisNote}
+    ${c.conf != null ? `<div class="confRow">ความมั่นใจ<div class="confBar"><i style="width:${c.conf_final != null ? c.conf_final : c.conf}%"></i></div><b>${c.conf_final != null && c.conf_final !== c.conf ? `${c.conf}% → ${c.conf_final}%` : c.conf + '%'}${c.weak ? ' ⚠️' : ''}</b></div>` : ''}
+    <div class="why chatwhy">💬 ${esc(c.setup || '')}</div>${c.lesson_th ? `<div class="why">📘 ${esc(c.lesson_th)}</div>` : ''}${basisNote}
     <div class="mt5" style="color:var(--muted)">ราคาเป็นฐาน Spot XAU/USD · บนกราฟนี้ ≈ เข้า ${fmt(c.entry + st.off)} · SL ${fmt(c.sl + st.off)} · TP ${fmt(c.tp + st.off)}</div>${dist}</div>`;
 }
 let chatSeen = null;

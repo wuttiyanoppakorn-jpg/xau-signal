@@ -21,7 +21,7 @@ def epoch(bkk_str):
     return int(dt.datetime.strptime(bkk_str.strip(), "%Y-%m-%d %H:%M").replace(tzinfo=BKK).timestamp())
 
 OPTIONAL = ("conf", "conf_adj", "conf_final", "weak", "rr", "result", "result_t", "result_bkk", "r_net", "mfe_r", "mae_r",
-            "minutes_to_result", "exit_price_spot", "lesson_th")
+            "minutes_to_result", "exit_price_spot", "lesson_th", "miss_reason", "if_market", "entry_kind")
 
 def convert(rows):
     out = []

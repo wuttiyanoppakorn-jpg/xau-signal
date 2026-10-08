@@ -702,8 +702,42 @@ function chatOffset(c) {   // chart price minus spot price for this signal
   if ((state.src === 'bybit' || state.src === 'okx') && c.xaut_gap != null) return -c.xaut_gap;   // chat note "XAUT gap g" = spot − XAUT
   const o = spotOffset(); return o == null ? 0 : o;
 }
+// Chat-signal outcome rule: SAME as run_cycle.py (memory.resolve_chat). Keep both in sync.
+// Market entry (entry at/through the price at send, tol = max($0.30, 0.1R)) is filled at once. A limit/pullback entry is 'missed'
+// (ไม่ได้เข้า, neutral) if price reaches TP or runs 1R beyond the send price before the fill, and 'not_filled' if not filled within
+// 30 min (scalp) / 60 min (hold). After a fill: SL checked first inside a bar, expiry after 6 h (scalp) / 24 h (hold).
+const CHAT_FILL_MIN = {scalp: 30, hold: 60}, CHAT_EXPIRY_H = {scalp: 6, hold: 24};
+function chatResolve(bars, k, c, off, sec) {
+  const sg = c.side === 'BUY' ? 1 : -1, entry = c.entry + off, sl = c.sl + off, tp = c.tp + off, risk = Math.abs(entry - sl);
+  if (!(risk > 0)) return {r: 'unknown'};
+  const typ = c.type === 'hold' ? 'hold' : 'scalp', expiry = CHAT_EXPIRY_H[typ] * 3600;
+  const run = (from, startT) => {
+    for (let i = from; i < bars.length; i++) { const x = bars[i];
+      if (sg > 0 ? x.l <= sl : x.h >= sl) return {r: 'loss', at: x.t};
+      if (sg > 0 ? x.h >= tp : x.l <= tp) return {r: 'win', at: x.t};
+      if (x.t + sec - startT >= expiry) return {r: 'expired', at: x.t}; }
+    return {r: 'open'};
+  };
+  if (c.engine) { const j = bars.findIndex(b => b.t >= c.t + 300); return j < 0 ? {r: 'open'} : run(j, c.t + 300); }   // engine: market at signal-bar close
+  const p0 = bars[k].o, tol = Math.max(0.3, 0.1 * risk);
+  if (sg > 0 ? entry >= p0 - tol : entry <= p0 + tol) return run(k, bars[k].t);
+  const miss = sg > 0 ? Math.min(tp, p0 + risk) : Math.max(tp, p0 - risk), deadline = c.sent + 60 * CHAT_FILL_MIN[typ];
+  for (let i = k; i < bars.length; i++) { const b = bars[i];
+    if (b.t >= deadline) return {r: 'not_filled', at: b.t};
+    const touched = (b.l <= entry && entry <= b.h) || (sg > 0 ? b.h < entry : b.l > entry), trig = sg > 0 ? b.h >= miss : b.l <= miss;
+    const why = (sg > 0 ? b.h >= tp : b.l <= tp) ? 'tp' : '1r';
+    if (touched) {
+      if (sg > 0 ? b.l <= sl : b.h >= sl) return {r: 'loss', at: b.t};
+      if (trig) return {r: 'missed', why, at: b.t};
+      return run(i + 1, b.t);
+    }
+    if (trig) return {r: 'missed', why, at: b.t};
+  }
+  return {r: 'pending'};
+}
 function chatStatus(c) {
-  const off = chatOffset(c), sl = c.sl + off, tp = c.tp + off;
+  const off = chatOffset(c);
+  const srv = ['win', 'loss', 'expired', 'not_filled', 'missed'].includes(c.result) ? {r: c.result, at: c.result_t || null, why: c.miss_reason, off} : null;   // server (run_cycle.py) result wins
   const sets = [state.tf === 'M1' ? state.bars : state.mtf.M1 && state.mtf.M1.bars, state.bars].filter(Boolean);
   for (const bars of sets) {
     if (!bars.length || bars[0].t > c.sent + 60) continue;
@@ -711,18 +745,22 @@ function chatStatus(c) {
     // sanity check: the signal's entry must be near the real price when it was sent (otherwise it was quoted on another basis, e.g. futures)
     const px = bars[k].o - off, atr = state.ind && state.ind.atr[state.ind.atr.length - 1] || 3;
     if (Math.abs(px - c.entry) > Math.max(10, 4 * atr)) return {r: 'basis', px, off};
-    const oc = E.outcome(bars, k, c.side, sl, tp);
-    return {r: oc.r, at: oc.k >= 0 ? bars[oc.k].t : null, off};
+    if (srv) return srv;
+    return Object.assign(chatResolve(bars, k, c, off, bars === state.bars ? E.TF_SEC[state.tf] : 60), {off});
   }
-  return {r: 'unknown', off};
+  return srv || {r: 'unknown', off};
+}
+function chatLabel(st, c) {
+  const t = st.at ? fmtTime(st.at) + ' น.' : '';
+  return st.r === 'win' ? `<span class="res win">✅ ถึง TP ${t}</span>` : st.r === 'loss' ? `<span class="res loss">❌ โดน SL ${t}</span>`
+    : st.r === 'expired' ? `<span class="res cancel">⌛ หมดเวลา${c.r_net != null ? ' ' + (c.r_net > 0 ? '+' : '') + c.r_net.toFixed(2) + 'R' : ''}</span>`
+    : st.r === 'missed' ? `<span class="res cancel">⚪ ไม่ได้เข้า (${st.why === '1r' ? 'ราคาวิ่งไป 1R ก่อนถึงจุดเข้า' : 'ราคาถึง TP ก่อนถึงจุดเข้า'})</span>`
+    : st.r === 'not_filled' ? '<span class="res cancel">⚪ หมดเวลา ไม่ได้เข้า</span>'
+    : st.r === 'pending' ? '<span class="res open">⏳ รอราคาเข้า</span>'
+    : st.r === 'open' ? '<span class="res open">⏳ ยังไม่จบ</span>' : st.r === 'basis' ? '<span class="res cancel">⚠️ ราคาคนละฐาน · ไม่ตรวจผล</span>' : '<span class="res">ไม่มีข้อมูลแท่งเทียนพอตรวจผล</span>';
 }
 function chatHtml(c) {
-  // server-side outcome from run_cycle.py (fill check, expiry, same engine rules) wins over the in-browser estimate
-  const st0 = chatStatus(c), srv = ['win', 'loss', 'expired', 'not_filled'].includes(c.result) ? c.result : null;
-  const st = srv ? Object.assign({}, st0, {r: srv, at: c.result_t || st0.at}) : st0, now = state.lastPrice != null ? state.lastPrice - st.off : null;
-  const res = st.r === 'win' ? `<span class="res win">✅ ถึง TP ${st.at ? fmtTime(st.at) + ' น.' : ''}</span>` : st.r === 'loss' ? `<span class="res loss">❌ โดน SL ${st.at ? fmtTime(st.at) + ' น.' : ''}</span>`
-    : st.r === 'expired' ? `<span class="res cancel">⌛ หมดเวลา ${c.r_net != null ? (c.r_net > 0 ? '+' : '') + c.r_net.toFixed(2) + 'R' : ''}</span>` : st.r === 'not_filled' ? '<span class="res cancel">⚪ ราคาไม่ถึงจุดเข้า</span>'
-    : st.r === 'open' ? '<span class="res open">⏳ ยังไม่จบ</span>' : st.r === 'basis' ? '<span class="res cancel">⚠️ ราคาคนละฐาน · ไม่ตรวจผล</span>' : '<span class="res">ไม่มีข้อมูลแท่งเทียนพอตรวจผล</span>';
+  const st = chatStatus(c), now = state.lastPrice != null ? state.lastPrice - st.off : null, res = chatLabel(st, c);
   const basisNote = st.r === 'basis' ? `<div class="why warn">จุดเข้า ${fmt(c.entry)} ห่างจากราคา Spot ตอนส่ง (≈ ${fmt(st.px)}) มาก — น่าจะอ้างอิงราคาทองฟิวเจอร์ส (GC) จึงไม่นำมาตรวจ TP/SL</div>` : '';
   const dist = st.r === 'open' && now != null ? `<div class="mt5">ราคาตอนนี้ ≈ Spot ${fmt(now)} · ห่าง TP ${Math.abs(c.tp - now).toFixed(2)} · ห่าง SL ${Math.abs(c.sl - now).toFixed(2)}</div>` : '';
   return `<div class="sig chat ${c.side}" data-t="${Math.floor(c.t / E.TF_SEC[state.tf]) * E.TF_SEC[state.tf]}">
@@ -911,7 +949,7 @@ function renderTvSig() {
   const sig = pre || confOpen;
   if (sig) body += row(`${pre ? 'เตรียมเข้า' : 'ยืนยัน'} ${fmtTime(sig.t)} น. · ${sig.conf}%`, sig.dir, typeTh(sig.long), sig.entry - o, sig.sl - o, sig.tp - o);
   if (chat) { const st = chatStatus(chat); body += row(`★ จากแชท ส่ง ${fmtTime(chat.sent)} น.`, chat.side, chat.type === 'hold' ? 'ถือยาว' : 'เก็บสั้นๆ', chat.entry, chat.sl, chat.tp,
-    `<span class="sub">${st.r === 'win' ? '✅ ถึง TP' : st.r === 'loss' ? '❌ โดน SL' : st.r === 'open' ? '⏳ ยังไม่จบ' : st.r === 'basis' ? '⚠️ ราคาคนละฐาน' : ''}</span>`); }
+    `<span class="sub">${chatLabel(st, chat).replace(/<[^>]+>/g, '')}</span>`); }
   if (!body) body = '<div class="sub" style="margin-top:4px">ยังไม่มีสัญญาณที่เปิดอยู่</div>';
   const html = `<div class="ttl">🎯 สัญญาณล่าสุด (ราคาแบบ Spot ≈ OANDA/Exness)<button id="tvSigBtn" title="ย่อ/ขยาย">${tvSigMin ? '▢' : '—'}</button></div>
     <div class="body">${body}<div class="sub" style="margin-top:6px">แปลงจากกราฟ ${state.src ? SOURCES[state.src].short : ''} ด้วยส่วนต่าง ${off == null ? '-' : (off >= 0 ? '+' : '') + off.toFixed(2)} · ระบบอ่านแท่งเทียนในกราฟ TradingView ไม่ได้ จึงไม่มีลูกศรบนกราฟนี้</div></div>`;

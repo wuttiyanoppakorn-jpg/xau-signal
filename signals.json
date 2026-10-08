@@ -1,8 +1,8 @@
 {
  "version": 1,
  "basis": "spot XAU/USD",
- "updated_utc": "2026-10-08T00:11:51Z",
- "count": 11,
+ "updated_utc": "2026-10-08T00:51:08Z",
+ "count": 12,
  "signals": [
   {
    "id": "23dceab284aa",
@@ -167,6 +167,21 @@
    "tp": 4096.0,
    "setup": "M5 lower high 4114.0 (XAUT, 07:00) below 4116 high, closes back below M5 EMA20/50 (~4112), MACD crossed below signal, RSI 43.5; aligned with H1/H4 down (H1 EMA20 4118 < EMA50 4131, H4 RSI 37); watch support 4106.8 XAUT (~4104.4 spot) (spot basis, XAUT gap +2.4)",
    "xaut_gap": 2.4,
+   "basis": "spot"
+  },
+  {
+   "id": "5ccd21a6322b",
+   "sent": 1791420660,
+   "sent_bkk": "2026-10-08 07:51",
+   "t": 1791420600,
+   "data_bkk": "2026-10-08 07:50",
+   "side": "BUY",
+   "type": "scalp",
+   "entry": 4115.0,
+   "sl": 4110.5,
+   "tp": 4120.0,
+   "setup": "M5 breakout: strong 07:45 bull candle broke 4116-4117 (XAUT) multi-hour range high to 4119.5, above M5 EMA20/50 (~4112.9), MACD crossed above signal, RSI 64; buy retest of broken resistance; counter-trend vs H1/H4 down, TP below 4121.8 (XAUT) H1 high / at H1 EMA20 area; earlier 07:12 SELL hold invalidated (spot basis, XAUT gap +2.6)",
+   "xaut_gap": 2.6,
    "basis": "spot"
   }
  ]

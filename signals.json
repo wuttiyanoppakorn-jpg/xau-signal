@@ -1,7 +1,7 @@
 {
  "version": 1,
  "basis": "spot XAU/USD",
- "updated_utc": "2026-10-08T03:49:20Z",
+ "updated_utc": "2026-10-08T04:04:34Z",
  "count": 17,
  "signals": [
   {
@@ -54,17 +54,18 @@
    "sl": 4127.0,
    "tp": 4090.0,
    "setup": "Rejection at H1 EMA20 ~4125, H1+H4 downtrend (EMA20<EMA50, MACD<0), spot basis",
-   "xaut_gap": null,
+   "xaut_gap": -0.9,
    "basis": "spot",
    "result": "loss",
-   "result_t": 1791421200,
-   "result_bkk": "2026-10-08 08:00",
+   "result_t": 1791421260,
+   "result_bkk": "2026-10-08 08:01",
    "r_net": -1.017,
-   "mfe_r": 0.608,
+   "mfe_r": 0.692,
    "mae_r": -1.0,
-   "minutes_to_result": 434,
+   "minutes_to_result": 436,
    "exit_price_spot": 4127.0,
-   "lesson_th": "❌ แพ้ -1.02R · ตัวเตือนที่ถูก: เทรนด์ M5, โครงสร้างราคา, ADX · ที่พลาด: เทรนด์ M1, เทรนด์ M15, เทรนด์ H1 · ที่ว่างถึงแนวรับ swing แค่ 0.5 ATR"
+   "lesson_th": "❌ แพ้ -1.02R · ตัวเตือนที่ถูก: เทรนด์ M5, โครงสร้างราคา, ADX · ที่พลาด: เทรนด์ M1, เทรนด์ M15, เทรนด์ H1 · ที่ว่างถึงแนวรับ swing แค่ 0.5 ATR",
+   "entry_kind": "market"
   },
   {
    "id": "c90a0d436ff3",
@@ -86,9 +87,10 @@
    "r_net": -1.047,
    "mfe_r": 0.566,
    "mae_r": -1.0,
-   "minutes_to_result": 19,
+   "minutes_to_result": 20,
    "exit_price_spot": 4118.0,
-   "lesson_th": "❌ แพ้ -1.05R · ตัวเตือนที่ถูก: เทรนด์ M5, โครงสร้างราคา, ADX · ที่พลาด: เทรนด์ M1, เทรนด์ M15, เทรนด์ H1 · ที่ว่างถึงแนวรับ swing แค่ 0.5 ATR"
+   "lesson_th": "❌ แพ้ -1.05R · ตัวเตือนที่ถูก: เทรนด์ M5, โครงสร้างราคา, ADX · ที่พลาด: เทรนด์ M1, เทรนด์ M15, เทรนด์ H1 · ที่ว่างถึงแนวรับ swing แค่ 0.5 ATR",
+   "entry_kind": "market"
   },
   {
    "id": "a5a14408547c",
@@ -110,9 +112,10 @@
    "r_net": 1.292,
    "mfe_r": 1.333,
    "mae_r": -0.233,
-   "minutes_to_result": 79,
+   "minutes_to_result": 80,
    "exit_price_spot": 4104.0,
-   "lesson_th": "✅ ชนะ +1.29R · ปัจจัยที่ถูก: เทรนด์ M1, เทรนด์ M15, เทรนด์ H1 · ที่พลาด: เทรนด์ M5, ADX, RSI · ไม้ตามเทรนด์ H1+H4 ทำงานดี"
+   "lesson_th": "✅ ชนะ +1.29R · ปัจจัยที่ถูก: เทรนด์ M1, เทรนด์ M15, เทรนด์ H1 · ที่พลาด: เทรนด์ M5, ADX, RSI · ไม้ตามเทรนด์ H1+H4 ทำงานดี",
+   "entry_kind": "market"
   },
   {
    "id": "2ace47be033d",
@@ -136,7 +139,8 @@
    "mae_r": -1.0,
    "minutes_to_result": 75,
    "exit_price_spot": 4114.0,
-   "lesson_th": "❌ แพ้ -1.06R · ตัวเตือนที่ถูก: Volume, Bollinger, StochRSI · ที่พลาด: เทรนด์ M1, เทรนด์ M15, เทรนด์ H1 · เคยกำไร 1.4R ก่อนกลับมาโดน SL ควรเลื่อน SL บังทุนเมื่อได้ 1R"
+   "lesson_th": "❌ แพ้ -1.06R · ตัวเตือนที่ถูก: Volume, Bollinger, StochRSI · ที่พลาด: เทรนด์ M1, เทรนด์ M15, เทรนด์ H1 · เคยกำไร 1.4R ก่อนกลับมาโดน SL ควรเลื่อน SL บังทุนเมื่อได้ 1R",
+   "entry_kind": "limit"
   },
   {
    "id": "0b6038fc43fe",
@@ -158,9 +162,10 @@
    "r_net": 1.125,
    "mfe_r": 1.167,
    "mae_r": -0.933,
-   "minutes_to_result": 255,
+   "minutes_to_result": 265,
    "exit_price_spot": 4118.0,
-   "lesson_th": "✅ ชนะ +1.12R · ปัจจัยที่ถูก: เทรนด์ M1, MACD, Bollinger · ที่พลาด: เทรนด์ M15, เทรนด์ H1, เทรนด์ H4 · เกือบโดน SL (ลบไป 0.9R ก่อนถึง TP)"
+   "lesson_th": "✅ ชนะ +1.12R · ปัจจัยที่ถูก: เทรนด์ M1, MACD, Bollinger · ที่พลาด: เทรนด์ M15, เทรนด์ H1, เทรนด์ H4 · เกือบโดน SL (ลบไป 0.9R ก่อนถึง TP)",
+   "entry_kind": "market"
   },
   {
    "id": "cec9070f8ea0",
@@ -182,9 +187,10 @@
    "r_net": -1.036,
    "mfe_r": 0.614,
    "mae_r": -1.0,
-   "minutes_to_result": 161,
+   "minutes_to_result": 163,
    "exit_price_spot": 4119.0,
-   "lesson_th": "❌ แพ้ -1.04R · ที่พลาด: เทรนด์ M1, เทรนด์ H1, เทรนด์ H4 · ที่ว่างถึงแนวรับ swing แค่ 0.5 ATR"
+   "lesson_th": "❌ แพ้ -1.04R · ที่พลาด: เทรนด์ M1, เทรนด์ H1, เทรนด์ H4 · ที่ว่างถึงแนวรับ swing แค่ 0.5 ATR",
+   "entry_kind": "market"
   },
   {
    "id": "5a21d779ae24",
@@ -206,9 +212,10 @@
    "r_net": -1.045,
    "mfe_r": 0.382,
    "mae_r": -1.0,
-   "minutes_to_result": 63,
+   "minutes_to_result": 64,
    "exit_price_spot": 4112.5,
-   "lesson_th": "❌ แพ้ -1.04R · ตัวเตือนที่ถูก: StochRSI · ที่พลาด: เทรนด์ M1, เทรนด์ M5, เทรนด์ M15"
+   "lesson_th": "❌ แพ้ -1.04R · ตัวเตือนที่ถูก: StochRSI · ที่พลาด: เทรนด์ M1, เทรนด์ M5, เทรนด์ M15",
+   "entry_kind": "market"
   },
   {
    "id": "c77756bb3fef",
@@ -230,9 +237,10 @@
    "r_net": -1.062,
    "mfe_r": 0.675,
    "mae_r": -1.0,
-   "minutes_to_result": 50,
+   "minutes_to_result": 51,
    "exit_price_spot": 4108.0,
-   "lesson_th": "❌ แพ้ -1.06R · ตัวเตือนที่ถูก: เทรนด์ M15, เทรนด์ H1, เทรนด์ H4 · ที่พลาด: เทรนด์ M1, MACD, แนวรับ/ต้าน · สวนเทรนด์ H1"
+   "lesson_th": "❌ แพ้ -1.06R · ตัวเตือนที่ถูก: เทรนด์ M15, เทรนด์ H1, เทรนด์ H4 · ที่พลาด: เทรนด์ M1, MACD, แนวรับ/ต้าน · สวนเทรนด์ H1",
+   "entry_kind": "market"
   },
   {
    "id": "934aa874a92d",
@@ -254,9 +262,10 @@
    "r_net": -1.056,
    "mfe_r": 0.0,
    "mae_r": -1.0,
-   "minutes_to_result": 1,
+   "minutes_to_result": 2,
    "exit_price_spot": 4112.0,
-   "lesson_th": "❌ แพ้ -1.06R · ตัวเตือนที่ถูก: เทรนด์ M5, ย่อแตะ EMA20, MACD · ที่พลาด: เทรนด์ M15, เทรนด์ H1, เทรนด์ H4 · ที่ว่างถึงแนวรับ swing แค่ 0.7 ATR"
+   "lesson_th": "❌ แพ้ -1.06R · ตัวเตือนที่ถูก: เทรนด์ M5, ย่อแตะ EMA20, MACD · ที่พลาด: เทรนด์ M15, เทรนด์ H1, เทรนด์ H4 · ที่ว่างถึงแนวรับ swing แค่ 0.7 ATR",
+   "entry_kind": "market"
   },
   {
    "id": "5ccd21a6322b",
@@ -280,7 +289,8 @@
    "mae_r": -0.022,
    "minutes_to_result": 9,
    "exit_price_spot": 4120.0,
-   "lesson_th": "✅ ชนะ +1.06R · ปัจจัยที่ถูก: เทรนด์ M1, เทรนด์ M5, MACD · ที่พลาด: เทรนด์ M15, เทรนด์ H1, เทรนด์ H4 · เงื่อนไขหลักทำงานตามคาด"
+   "lesson_th": "✅ ชนะ +1.06R · ปัจจัยที่ถูก: เทรนด์ M1, เทรนด์ M5, MACD · ที่พลาด: เทรนด์ M15, เทรนด์ H1, เทรนด์ H4 · เงื่อนไขหลักทำงานตามคาด",
+   "entry_kind": "limit"
   },
   {
    "id": "b3de5a3e3060",
@@ -296,15 +306,18 @@
    "setup": "M5 momentum continuation: 08:00 candle (forming) extends breakout to 4127.3 (XAUT) above 4122.3 high, well above M5 EMA20/50 (~4114.9/4113.1), MACD rising above signal, RSI 74.5 overbought so buy pullback/retest of 4122 (XAUT) broken high, not chase; H1 MACD turning up but price under H1 EMA50 4131 / H4 EMA20 4137 resistance, so TP below 4131 (XAUT); 07:51 BUY scalp TP 4120 reached (spot basis via Swissquote 4126.6 since gold-api stale at 4118.4, XAUT gap +0.7)",
    "xaut_gap": 0.7,
    "basis": "spot",
-   "result": "win",
-   "result_t": 1791422760,
-   "result_bkk": "2026-10-08 08:26",
-   "r_net": 1.722,
-   "mfe_r": 1.778,
-   "mae_r": 0.0,
-   "minutes_to_result": 11,
-   "exit_price_spot": 4129.5,
-   "lesson_th": "✅ ชนะ +1.72R · ปัจจัยที่ถูก: เทรนด์ M1, เทรนด์ M5, MACD · ที่พลาด: เทรนด์ H1, เทรนด์ H4, โครงสร้างราคา · แม้ RSI สูง/ต่ำเกินแต่โมเมนตัมยังไปต่อ"
+   "result": "missed",
+   "result_t": 1791421320,
+   "result_bkk": "2026-10-08 08:02",
+   "lesson_th": "⚪ ไม่ได้เข้า (ราคาถึง TP ก่อนถึงจุดเข้า) · ถ้าเข้าราคาตลาดตอนส่งสัญญาณ (4130.4) จะโดน SL -1.06R · บทเรียน: จุดรอย่ออาจลึกเกินไป",
+   "miss_reason": "tp",
+   "if_market": {
+    "result": "loss",
+    "r_net": -1.056,
+    "exit_t": 1791421800,
+    "entry": 4130.4
+   },
+   "entry_kind": "limit"
   },
   {
    "id": "b13f15df6f0f",
@@ -320,10 +333,18 @@
    "setup": "M5 higher low: pullback after 08:00 breakout held 4120.7-4121.6 (XAUT) above old range high/M5 EMA20 4119.5, 08:25 candle (forming) bouncing to 4128.9, MACD 3.98 above signal 2.67 and rising, RSI 68; buy small dip, SL under higher low, TP at retest of 4134.0 (XAUT) M5 high; caution H1 EMA50 4131.1 (XAUT) resistance and H4 still down (EMA20 4136.9 < EMA50 4158.8); 08:02 BUY scalp TP 4129.5 reached (spot basis gold-api 4129.7, XAUT gap +0.8)",
    "xaut_gap": 0.8,
    "basis": "spot",
-   "result": "not_filled",
-   "result_t": 1791426540,
-   "result_bkk": "2026-10-08 09:29",
-   "lesson_th": "ไม้นี้ราคาไม่มาถึงจุดเข้า จึงไม่นับผล"
+   "result": "missed",
+   "result_t": 1791424020,
+   "result_bkk": "2026-10-08 08:47",
+   "lesson_th": "⚪ ไม่ได้เข้า (ราคาถึง TP ก่อนถึงจุดเข้า) · ถ้าเข้าราคาตลาดตอนส่งสัญญาณ (4129.4) จะถึง TP +1.19R · บทเรียน: จุดรอย่ออาจลึกเกินไป",
+   "miss_reason": "tp",
+   "if_market": {
+    "result": "win",
+    "r_net": 1.192,
+    "exit_t": 1791424020,
+    "entry": 4129.4
+   },
+   "entry_kind": "limit"
   },
   {
    "id": "0343c794cdb7",
@@ -347,7 +368,8 @@
    "mae_r": -0.4,
    "minutes_to_result": 42,
    "exit_price_spot": 4142.0,
-   "lesson_th": "✅ ชนะ +1.45R · ปัจจัยที่ถูก: เทรนด์ M1, เทรนด์ M5, เทรนด์ M15 · ที่พลาด: เทรนด์ H1, เทรนด์ H4, RSI · แม้ RSI สูง/ต่ำเกินแต่โมเมนตัมยังไปต่อ"
+   "lesson_th": "✅ ชนะ +1.45R · ปัจจัยที่ถูก: เทรนด์ M1, เทรนด์ M5, เทรนด์ M15 · ที่พลาด: เทรนด์ H1, เทรนด์ H4, RSI · แม้ RSI สูง/ต่ำเกินแต่โมเมนตัมยังไปต่อ",
+   "entry_kind": "limit"
   },
   {
    "id": "271a6dea48a4",
@@ -371,7 +393,8 @@
    "mae_r": -1.0,
    "minutes_to_result": 11,
    "exit_price_spot": 4136.0,
-   "lesson_th": "❌ แพ้ -1.07R · ตัวเตือนที่ถูก: เทรนด์ H4 · ที่พลาด: เทรนด์ M1, เทรนด์ M5, เทรนด์ M15 · เคยกำไร 1.1R ก่อนกลับมาโดน SL ควรเลื่อน SL บังทุนเมื่อได้ 1R"
+   "lesson_th": "❌ แพ้ -1.07R · ตัวเตือนที่ถูก: เทรนด์ H4 · ที่พลาด: เทรนด์ M1, เทรนด์ M5, เทรนด์ M15 · เคยกำไร 1.1R ก่อนกลับมาโดน SL ควรเลื่อน SL บังทุนเมื่อได้ 1R",
+   "entry_kind": "limit"
   },
   {
    "id": "a2c02e4314de",
@@ -387,9 +410,18 @@
    "setup": "M5 failed breakout: 09:30-09:45 push above 4140.1 (XAUT) triple top stalled at 4143.8 and 09:50 candle (forming) dropped to 4134.7, breaking 09:20 higher low 4137.0; MACD 5.21 crossed below signal 5.72, RSI fell 71->55, price at M5 EMA20 4135.0; sell retest of 4137-4138.5 broken support, SL above 4143.8 high, TP above H1 EMA50 4131.4/08:55 low 4131.9 (XAUT); counter to H1 recovery so scalp only, H4 under EMA20 4137.6; 09:37 BUY scalp stopped out (low 4134.7 < SL 4136) (spot basis gold-api 4135.2, XAUT gap ~0)",
    "xaut_gap": 0.0,
    "basis": "spot",
-   "result": "open",
-   "mfe_r": 0.117,
-   "mae_r": -0.433
+   "result": "missed",
+   "result_t": 1791429060,
+   "result_bkk": "2026-10-08 10:11",
+   "lesson_th": "⚪ ไม่ได้เข้า (ราคาถึง TP ก่อนถึงจุดเข้า) · ถ้าเข้าราคาตลาดตอนส่งสัญญาณ (4135.1) จะโดน SL -1.04R · บทเรียน: จุดรอย่ออาจลึกเกินไป",
+   "miss_reason": "tp",
+   "if_market": {
+    "result": "loss",
+    "r_net": -1.042,
+    "exit_t": 1791431340,
+    "entry": 4135.1
+   },
+   "entry_kind": "limit"
   }
  ]
 }

@@ -1,8 +1,8 @@
 {
  "version": 1,
  "basis": "spot XAU/USD",
- "updated_utc": "2026-10-08T01:01:39Z",
- "count": 13,
+ "updated_utc": "2026-10-08T01:27:58Z",
+ "count": 14,
  "signals": [
   {
    "id": "23dceab284aa",
@@ -197,6 +197,21 @@
    "tp": 4129.5,
    "setup": "M5 momentum continuation: 08:00 candle (forming) extends breakout to 4127.3 (XAUT) above 4122.3 high, well above M5 EMA20/50 (~4114.9/4113.1), MACD rising above signal, RSI 74.5 overbought so buy pullback/retest of 4122 (XAUT) broken high, not chase; H1 MACD turning up but price under H1 EMA50 4131 / H4 EMA20 4137 resistance, so TP below 4131 (XAUT); 07:51 BUY scalp TP 4120 reached (spot basis via Swissquote 4126.6 since gold-api stale at 4118.4, XAUT gap +0.7)",
    "xaut_gap": 0.7,
+   "basis": "spot"
+  },
+  {
+   "id": "b13f15df6f0f",
+   "sent": 1791422880,
+   "sent_bkk": "2026-10-08 08:28",
+   "t": 1791422700,
+   "data_bkk": "2026-10-08 08:25",
+   "side": "BUY",
+   "type": "scalp",
+   "entry": 4127.0,
+   "sl": 4120.5,
+   "tp": 4135.0,
+   "setup": "M5 higher low: pullback after 08:00 breakout held 4120.7-4121.6 (XAUT) above old range high/M5 EMA20 4119.5, 08:25 candle (forming) bouncing to 4128.9, MACD 3.98 above signal 2.67 and rising, RSI 68; buy small dip, SL under higher low, TP at retest of 4134.0 (XAUT) M5 high; caution H1 EMA50 4131.1 (XAUT) resistance and H4 still down (EMA20 4136.9 < EMA50 4158.8); 08:02 BUY scalp TP 4129.5 reached (spot basis gold-api 4129.7, XAUT gap +0.8)",
+   "xaut_gap": 0.8,
    "basis": "spot"
   }
  ]

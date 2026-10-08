@@ -1,8 +1,8 @@
 {
  "version": 1,
  "basis": "spot XAU/USD",
- "updated_utc": "2026-10-08T06:47:45Z",
- "count": 21,
+ "updated_utc": "2026-10-08T06:57:00Z",
+ "count": 22,
  "signals": [
   {
    "id": "23dceab284aa",
@@ -536,6 +536,28 @@
    "minutes_to_result": 20,
    "exit_price_spot": 4121.7,
    "lesson_th": "❌ แพ้ -1.05R · ตัวเตือนที่ถูก: เทรนด์ M15 · ที่พลาด: เทรนด์ M1, เทรนด์ M5, เทรนด์ H1 · ที่ว่างถึงแนวรับ swing แค่ 0.0 ATR",
+   "engine": true
+  },
+  {
+   "id": "ecd8853f0bcc",
+   "sent": 1791442620,
+   "sent_bkk": "2026-10-08 13:57",
+   "t": 1791442200,
+   "data_bkk": "2026-10-08 13:50",
+   "side": "SELL",
+   "type": "scalp",
+   "entry": 4125.2,
+   "sl": 4129.8,
+   "tp": 4118.3,
+   "setup": "Engine M5 confluence (same as website) conf 64%; triggers: Pin bar ขาลง (หางบนยาว); agree: เทรนด์ M5 ขาลง, เทรนด์ H1 ขาลง, เทรนด์ H4 ขาลง, Pin bar ขาลง (หางบนยาว); against: เทรนด์ M1 ขาขึ้น, เทรนด์ M15 ขาขึ้น, MACD ยังไม่หนุน (spot basis gold-api 4124.3, XAUT gap -2.1; chart bybit entry 4127.30)",
+   "xaut_gap": -2.1,
+   "basis": "spot",
+   "conf": 64,
+   "conf_adj": 0,
+   "conf_final": 64,
+   "weak": false,
+   "rr": 1.5,
+   "result": "open",
    "engine": true
   }
  ]

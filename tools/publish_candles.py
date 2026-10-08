@@ -61,16 +61,26 @@ def build(bars, spot=None, spot_src=None, now=None):
             "live_px": live, "spot": spot, "spot_src": spot_src, "basis_spot_minus_oanda": round(spot - live, 3) if spot else None,
             "fields": ["t", "o", "h", "l", "c", "tickvol"], "bars": out}
 
-def publish(bars, spot=None, spot_src=None, push=True):
+def publish(bars, spot=None, spot_src=None, push=True, slot=None):
+    """slot (minute epoch // 60): also write live/<slot>.json. raw.githubusercontent.com caches a branch path ~5 min, but a path that was
+    never requested before is served fresh, so the website reads the current minute's file ~2 s after this push."""
+    import fcntl
     try:
+        DATA.parent.mkdir(parents=True, exist_ok=True)
+        lk = open(str(DATA) + ".lock", "w"); fcntl.flock(lk, fcntl.LOCK_EX)   # daemon + routine never write the worktree at once
         doc = build(bars, spot, spot_src)
         ensure_worktree()
         p = DATA / "candles.json"; tmp = p.with_suffix(".tmp")
         tmp.write_text(json.dumps(doc, separators=(",", ":"))); os.replace(tmp, p)
         rd = DATA / "README.md"
         if not rd.exists(): rd.write_text("Auto-published OANDA:XAUUSD candles for the xau-signal website (read by index.html). Written every routine cycle by tools/publish_candles.py. Do not edit.\n")
+        if slot is not None:
+            lv = DATA / "live"; lv.mkdir(exist_ok=True)
+            (lv / f"{int(slot)}.json").write_text(p.read_text())
+            for f in lv.glob("*.json"):
+                if f.stem.isdigit() and int(f.stem) < int(slot) - 12: f.unlink()
         if not push: return "written (no push)"
-        _git("add", "candles.json", "README.md")
+        _git("add", "-A", ".")
         r = _git("commit", "-q", "-m", f"candles {doc['updated_bkk']} BKK")
         if r.returncode != 0 and "nothing to commit" in (r.stdout + r.stderr): return "unchanged"
         r = _git("push", "-q", "origin", "HEAD:data", timeout=60)

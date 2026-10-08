@@ -62,6 +62,14 @@
   #legend .sym{font-family:var(--font-h);font-size:15px;color:var(--text);font-weight:600;margin-right:6px}
   .keys{display:flex;gap:10px;flex-wrap:wrap;font-size:11px;color:var(--muted)}
   .keys i{display:inline-block;width:14px;height:3px;border-radius:2px;vertical-align:middle;margin-right:4px}
+  .viewBar{display:flex;align-items:center;gap:10px;padding:10px 12px 0;flex-wrap:wrap}
+  .seg.small button{font-size:12.5px;padding:5px 11px}
+  #tvWrap{position:relative;flex:1;display:none;min-height:380px;margin:8px}
+  #tvBox{position:absolute;inset:0;border-radius:12px;overflow:hidden}
+  #tvBox iframe{border:0}
+  .view-tv #tvWrap{display:block}
+  .view-tv #chart,.view-tv .chartTop{display:none}
+  #tvQuote{height:72px;margin:6px 0 2px;border-radius:10px;overflow:hidden}
   #srcSel{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:12px;font-size:12.5px;color:var(--text);background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);white-space:nowrap}
   #overlay{position:absolute;inset:0;display:flex;flex-direction:column;gap:14px;align-items:center;justify-content:center;background:rgba(7,9,15,.82);backdrop-filter:blur(6px);z-index:10;font-size:15px;text-align:center;padding:20px;border-radius:var(--radius)}
   .spinner{width:42px;height:42px;border-radius:50%;border:3px solid rgba(246,196,83,.15);border-top-color:var(--gold);animation:spin 1s linear infinite}
@@ -222,7 +230,7 @@
     .keys{display:none}
     main{display:flex;flex-direction:column;height:auto;padding:10px;gap:10px}
     #chartWrap{height:auto;min-height:0}
-    #chart{height:58vh;flex:none}
+    #chart,#tvWrap{height:58vh;flex:none}
     .price{font-size:34px}
     #signals{max-height:none;overflow:visible}
     .sigPanel{overflow:visible}
@@ -247,6 +255,9 @@
 </header>
 <main>
   <section id="chartWrap" class="glass">
+    <div class="viewBar"><div class="seg small" id="viewSeg"><span class="pill" id="viewPill"></span><button data-view="arrows">🎯 กราฟลูกศร (OANDA)</button><button data-view="tv">📺 OANDA สด (TradingView)</button></div>
+      <span class="sub" id="viewNote"></span></div>
+    <div id="tvWrap"><div id="tvBox"></div></div>
     <div class="chartTop"><div id="legend"></div>
       <div class="keys"><span><i style="background:#ff9f43"></i>EMA9</span><span><i style="background:#f6c453"></i>EMA20</span><span><i style="background:#5b8cff"></i>EMA50</span><span><i style="background:#cfd3da"></i>EMA200</span><span><i style="background:#00d2d3"></i>VWAP</span><span><i style="background:#b388ff"></i>RSI</span></div></div>
     <div id="chart"></div>
@@ -256,6 +267,7 @@
     <div class="card glass hero">
       <div class="instLabel" id="instLabel">-</div>
       <div class="priceRow"><div class="price" id="price">-</div><span class="chg" id="chg"></span></div>
+      <div id="tvQuote" title="ราคา OANDA:XAUUSD สดจาก TradingView (ตัวเดียวกับที่เห็นใน tradingview.com)"></div>
       <div class="spot" id="spotLine">ราคา Spot XAU/USD อ้างอิง: กำลังโหลด...</div>
       <div class="sectionLabel">เทรนด์หลายไทม์เฟรม</div>
       <div class="mtf" id="mtf"></div>
@@ -320,30 +332,28 @@ const num = Number;
 // (tools/publish_candles.py, also used by the chat routine) and published to the repo's `data` branch → raw.githubusercontent.com (CORS ok).
 // The forming candle is moved live by the gold-api spot price shifted onto the OANDA basis (spot − OANDA measured at publish time).
 // Signals are computed ONLY on published, closed OANDA candles → arrows never move or get cancelled.
-// Freshness: raw.githubusercontent.com caches a branch URL ~5 min, so the latest `data` commit sha is read from the GitHub API
-// (≤ 1 call / 90 s per visitor, 60/h unauthenticated limit) and the immutable per-commit file is downloaded. API down/limited → branch URL.
-const RAW = 'https://raw.githubusercontent.com/wuttiyanoppakorn-jpg/xau-signal/';
-const SHA_API = 'https://api.github.com/repos/wuttiyanoppakorn-jpg/xau-signal/commits/data';
+// Freshness: raw.githubusercontent.com caches a branch path ~5 min, but a path nobody requested before is fetched fresh.
+// The box publishes OANDA candles at second ~3 of every minute to live/<minute>.json (data branch), so the page reads the current
+// minute's file at second ~10 (no API, no rate limit). If that file is missing it falls back to the previous minute, then candles.json.
+const RAW = 'https://raw.githubusercontent.com/wuttiyanoppakorn-jpg/xau-signal/data/';
 const toBars = a => (a || []).map(r => ({t: r[0], o: r[1], h: r[2], l: r[3], c: r[4], v: r[5] || 0}));
-const DC = {doc: null, sha: null, shaAt: 0, at: 0, inflight: null};
+const DC = {doc: null, at: 0, inflight: null, tried: new Set()};
 const validDoc = j => { if (!j || !j.bars || !j.bars.M5 || j.bars.M5.length < 300) throw new Error('ข้อมูลกราฟ OANDA ไม่ครบ'); return j; };
-async function latestSha() {
-  if (Date.now() - DC.shaAt < 90000) return DC.sha;
-  DC.shaAt = Date.now();
-  try { const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 8000);
-    const r = await fetch(SHA_API, {headers: {Accept: 'application/vnd.github.sha'}, cache: 'no-cache', signal: ctl.signal}); clearTimeout(to);
-    const t = r.ok ? (await r.text()).trim() : ''; DC.sha = /^[0-9a-f]{40}$/.test(t) ? t : null; } catch (e) { DC.sha = null; }
-  return DC.sha;
-}
+async function tryGet(url) { try { return validDoc(await getJSON(url, 12000)); } catch (e) { return null; } }
 function loadCandles(force) {
   if (DC.inflight) return DC.inflight;
   if (!force && DC.doc && Date.now() - DC.at < 15000) return Promise.resolve(DC.doc);
   DC.inflight = (async () => {
-    const sha = await latestSha();
-    if (sha && DC.doc && DC.doc._sha === sha) return DC.doc;   // nothing new
-    const j = validDoc(await getJSON(sha ? RAW + sha + '/candles.json' : RAW + 'data/candles.json?t=' + Date.now(), 15000));
-    j._sha = sha || null;
-    if (!DC.doc || j.updated_t >= DC.doc.updated_t) { DC.doc = j; DC.at = Date.now(); }
+    const now = Date.now() / 1000, m = Math.floor(now / 60) - (now % 60 < 9 ? 1 : 0);
+    let j = null;
+    for (const slot of [m, m - 1]) {
+      if (DC.doc && DC.doc.updated_t >= slot * 60) break;              // already have this minute
+      if (DC.tried.has(slot)) continue; DC.tried.add(slot);            // each slot path is requested once (a 404 would be cached)
+      j = await tryGet(RAW + 'live/' + slot + '.json'); if (j) break;
+    }
+    if (!j && (!DC.doc || now - DC.doc.updated_t > 150)) j = await tryGet(RAW + 'candles.json?t=' + Math.floor(now));
+    if (j && (!DC.doc || j.updated_t > DC.doc.updated_t)) { DC.doc = j; DC.at = Date.now(); }
+    if (!DC.doc) throw new Error('โหลดแท่งเทียน OANDA ไม่ได้');
     return DC.doc;
   })().finally(() => { DC.inflight = null; });
   return DC.inflight;
@@ -400,7 +410,7 @@ $('thr').value = state.threshold; $('thrV').textContent = state.threshold + '%';
 
 for (const tf of Object.keys(TFS)) {
   const b = document.createElement('button'); b.textContent = tf; b.dataset.tf = tf;
-  b.onclick = () => { state.tf = tf; localStorage.setItem('xau_tf', tf); start(); };
+  b.onclick = () => { state.tf = tf; localStorage.setItem('xau_tf', tf); start(); if (typeof setView === 'function' && view === 'tv') setView('tv'); };
   $('tfs').appendChild(b);
 }
 function movePill() { const b = document.querySelector('#tfs button.active'), pill = $('tfPill'); if (b) { pill.style.left = b.offsetLeft + 'px'; pill.style.width = b.offsetWidth + 'px'; } }
@@ -805,28 +815,19 @@ function renderSpot() {
   const D = state.data, dAge = D ? Math.max(0, Math.round((Date.now() / 1000 - D.updated_t) / 60)) : null;
   $('spotLine').innerHTML = `ราคา Spot อ้างอิง (gold-api): <b style="color:#e6e9ef">${fmt(state.spot.price)}</b>` +
     (off != null ? ` · OANDA ต่างจาก Spot <b class="${off >= 0 ? 'up' : 'down'}">${off >= 0 ? '+' : ''}${off.toFixed(2)}</b>` : '') +
-    (D ? `<br><span class="note">แท่งเทียน OANDA อัปเดตทุก 5 นาที (ล่าสุด ${dAge} นาทีที่แล้ว) · แท่งที่กำลังวิ่งขยับตามราคา Spot ที่ปรับฐานเป็น OANDA</span>` : '') +
+    (D ? `<br><span class="note">แท่งเทียน OANDA อัปเดตทุก 1 นาที (ล่าสุด ${dAge} นาทีที่แล้ว) · Spot เป็นราคาอ้างอิงเท่านั้น ไม่ได้ใช้วาดกราฟ</span>` : '') +
     (age > 30 ? '<br><span class="note">ตลาดทองปิดอยู่ (เสาร์-อาทิตย์/วันหยุด)</span>' : '');
 }
-async function pollSpot() { try { const j = await getJSON('https://api.gold-api.com/price/XAU', 8000); if (j && j.price) { state.spot = j; state.spotAt = Date.now(); liveTick(); renderSpot(); } } catch (e) {} }
-pollSpot(); setInterval(pollSpot, 5000);
+async function pollSpot() { try { const j = await getJSON('https://api.gold-api.com/price/XAU', 8000); if (j && j.price) { state.spot = j; state.spotAt = Date.now(); renderSpot(); } } catch (e) {} }
+pollSpot(); setInterval(pollSpot, 30000);   // reference only
 
 // ======================= live data (OANDA candles + live spot tick) =======================
 function drawLiveBar() {
   const lb = state.live, last = state.bars[state.bars.length - 1];
   if (lb && last && lb.t > last.t) candles.update({time: lb.t + BKK, open: lb.o, high: lb.h, low: lb.l, close: lb.c});
 }
-// move the forming candle with the live spot price shifted onto the OANDA basis (display + live meters only; never used for signals)
-function liveTick() {
-  const D = state.data, last = state.bars[state.bars.length - 1]; if (!D || !last || !state.spot) return;
-  const now = Date.now() / 1000, spotT = Date.parse(state.spot.updatedAt) / 1000; if (!(now - spotT < 180)) return;   // spot stale = market closed
-  const sec = E.TF_SEC[state.tf], t = Math.floor(now / sec) * sec; if (t <= last.t) return;
-  const px = Math.round((state.spot.price - state.basis) * 1000) / 1000;
-  let lb = state.live;
-  if (!lb || lb.t !== t) { const o = lb ? lb.c : last.c; lb = {t, o, h: Math.max(o, px), l: Math.min(o, px), c: px, v: 0, syn: true}; }
-  else lb = Object.assign({}, lb, {h: Math.max(lb.h, px), l: Math.min(lb.l, px), c: px});
-  state.live = lb; drawLiveBar(); updatePrice(px); scheduleLive();
-}
+// The forming candle is OANDA's own partial bar from the latest 1-minute publish (no spot price is mixed in).
+function liveTick() {}
 function applyMTF(D, skip) {
   for (const tf of E.TF_LIST) { if (tf === skip) continue; const b = toBars(D.bars[tf]); if (b.length) state.mtf[tf] = E.tfModel(b, E.TF_SEC[tf]); }
   state.ctx = E.makeCtx(state.tf, state.mtf);
@@ -835,7 +836,7 @@ function setBasis(D) { state.basis = D.basis_spot_minus_oanda != null ? D.basis_
 function dataStatus() {
   const D = state.data; if (!D) return;
   const age = Math.round((Date.now() / 1000 - D.updated_t) / 60), spotLive = state.spot && Date.now() / 1000 - Date.parse(state.spot.updatedAt) / 1000 < 180;
-  if (spotLive && age > 12) setStatus('warn', `แท่ง OANDA ล่าช้า ${age} นาที · รออัปเดต`);
+  if (age > 3 && (spotLive || D.bars.M5.length && Date.now() / 1000 - D.bars.M5[D.bars.M5.length - 1][0] < 1800)) setStatus('warn', `แท่ง OANDA ล่าช้า ${age} นาที · รออัปเดต`);
   else setStatus('live', `OANDA XAU/USD · แท่งอัปเดต ${age} นาทีที่แล้ว`);
 }
 async function pollData() {
@@ -852,14 +853,15 @@ async function pollData() {
         const lc = state.bars[state.bars.length - 1].t;
         if (part && (!state.live || state.live.t <= part.t)) state.live = part; else if (state.live && state.live.t <= lc) state.live = null;
         applyMTF(D, state.tf);
-        fullRecompute(lc > lastT);
+        if (lc > lastT || !state.evs) fullRecompute(lc > lastT); else { drawLiveBar(); scheduleLive(); }
         updatePrice(state.live && state.live.t > lc ? state.live.c : state.bars[state.bars.length - 1].c);
       }
     }
     dataStatus();
   } catch (e) { if (gen === state.gen) setStatus('err', 'โหลดกราฟ OANDA ไม่ได้: ' + e.message + ' · กำลังลองใหม่'); }
 }
-setInterval(pollData, 20000);
+let lastPollMin = -1;
+setInterval(() => { const d = new Date(), m = Math.floor(d.getTime() / 60000); if (d.getSeconds() >= 10 && m !== lastPollMin) { lastPollMin = m; pollData(); } }, 1000);
 setInterval(() => { dataStatus(); renderSpot(); }, 30000);
 setInterval(() => { if (state.evs && closedIdx() !== lastClosedSeen) fullRecompute(true); }, 2000);
 
@@ -1035,6 +1037,33 @@ function renderNews() {
       (d ? ` · ข่าวไทย + Google News / FXStreet / Investing.com อัปเดต ${agoTh(d.fetched_at)} (รีเฟรชพร้อมสัญญาณใหม่/ผลไม้)` : '') + ' · ไม่ใช่คำแนะนำการลงทุน';
   }
 }
+// ======================= live OANDA from TradingView (official embed widgets) =======================
+// TradingView only accepts its data websocket from tradingview.com pages, so a github.io page cannot read OANDA ticks itself.
+// Exact real-time OANDA is shown with TradingView's own widgets: a quote box (always) and a full live chart (view toggle).
+const TV_INT = {M1: '1', M5: '5', M15: '15', H1: '60', H4: '240'};
+function tvEmbed(box, script, cfg) {
+  box.innerHTML = '';
+  const wrap = document.createElement('div'); wrap.className = 'tradingview-widget-container'; wrap.style.cssText = 'height:100%;width:100%';
+  const inner = document.createElement('div'); inner.className = 'tradingview-widget-container__widget'; inner.style.cssText = 'height:100%;width:100%';
+  const sc = document.createElement('script'); sc.type = 'text/javascript'; sc.async = true; sc.src = 'https://s3.tradingview.com/external-embedding/' + script; sc.text = JSON.stringify(cfg);
+  wrap.appendChild(inner); wrap.appendChild(sc); box.appendChild(wrap);
+}
+tvEmbed($('tvQuote'), 'embed-widget-single-quote.js', {symbol: 'OANDA:XAUUSD', width: '100%', colorTheme: 'dark', isTransparent: true, locale: 'th_TH'});
+let tvChartTf = null, view = localStorage.getItem('xau_view2') === 'tv' ? 'tv' : 'arrows';
+function setView(v) {
+  view = v; localStorage.setItem('xau_view2', v);
+  $('chartWrap').classList.toggle('view-tv', v === 'tv');
+  document.querySelectorAll('#viewSeg button').forEach(b => b.classList.toggle('active', b.dataset.view === v));
+  const b = document.querySelector('#viewSeg button.active'); if (b) { $('viewPill').style.left = b.offsetLeft + 'px'; $('viewPill').style.width = b.offsetWidth + 'px'; }
+  $('viewNote').textContent = v === 'tv' ? 'กราฟ OANDA:XAUUSD สดจาก TradingView (ตรงกับ tradingview.com) · ลูกศรสัญญาณอยู่ที่ "กราฟลูกศร"'
+    : 'แท่งเทียน OANDA (อัปเดตทุก 1 นาที) · ลูกศรคำนวณจากแท่งที่ปิดแล้ว · ราคาสดดูกล่อง OANDA ด้านขวา หรือ "OANDA สด"';
+  if (v === 'tv' && tvChartTf !== state.tf) { tvChartTf = state.tf;
+    tvEmbed($('tvBox'), 'embed-widget-advanced-chart.js', {autosize: true, symbol: 'OANDA:XAUUSD', interval: TV_INT[state.tf] || '5', timezone: 'Asia/Bangkok', theme: 'dark', style: '1', locale: 'th_TH',
+      backgroundColor: 'rgba(10,13,20,1)', gridColor: 'rgba(255,255,255,0.04)', allow_symbol_change: false, withdateranges: true, save_image: false, calendar: false, support_host: 'https://www.tradingview.com'}); }
+}
+document.querySelectorAll('#viewSeg button').forEach(b => b.onclick = () => setView(b.dataset.view));
+window.addEventListener('resize', () => setView(view)); setTimeout(() => setView(view), 0);
+
 // ---------- engine inputs added 2026-10-08 (xau-research/newinputs): gold D1/W1 trend + US event days (CPI/NFP/FOMC) ----------
 // Daily bars = OANDA XAU/USD UTC days (candles.json D1, aggregated from OANDA H1 — the same rows the chat routine uses); calendar from news.json.
 // Missing data only skips that input.

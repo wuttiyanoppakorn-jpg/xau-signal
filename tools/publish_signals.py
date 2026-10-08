@@ -45,8 +45,8 @@ def convert(rows):
         gap = r.get("gap_spot_minus_chart")
         item = {"id": sid, "sent": sent, "sent_bkk": r["sent_bkk"], "t": data_t, "data_bkk": r.get("data_bkk"),
                 "side": side, "type": typ, "entry": entry, "sl": sl, "tp": tp, "setup": setup,
-                "xaut_gap": float(gap) if gap is not None else (float(m.group(1)) if m else None),
-                "basis": "spot" if "spot basis" in setup.lower() else "unspecified"}
+                "xaut_gap": None if r.get("source_key") == "oanda" else (float(gap) if gap is not None else (float(m.group(1)) if m else None)),
+                "basis": "oanda" if r.get("source_key") == "oanda" else ("spot" if "spot basis" in setup.lower() else "unspecified")}
         # optional fields written by run_cycle.py (engine signals + server-side outcome tracking)
         for k in OPTIONAL:
             if r.get(k) is not None:
@@ -91,7 +91,7 @@ def main():
     except subprocess.CalledProcessError as e:
         print("warning: git pull failed:", e.stderr.strip(), file=sys.stderr)
     if old != signals:
-        doc = {"version": 1, "basis": "spot XAU/USD", "updated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        doc = {"version": 1, "basis": "per signal: 'oanda' = OANDA XAU/USD prices (website chart), 'spot' = older signals quoted on spot", "updated_utc": dt.datetime.now(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
                "count": len(signals), "signals": signals}
         dst.write_text(json.dumps(doc, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
     if news_due:

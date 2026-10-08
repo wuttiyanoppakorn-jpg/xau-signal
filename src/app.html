@@ -1110,6 +1110,28 @@ function renderNews() {
       (d ? ` · ข่าวไทย + Google News / FXStreet / Investing.com อัปเดต ${agoTh(d.fetched_at)} (รีเฟรชพร้อมสัญญาณใหม่/ผลไม้)` : '') + ' · ไม่ใช่คำแนะนำการลงทุน';
   }
 }
+// ---------- engine inputs added 2026-10-08 (xau-research/newinputs): gold D1/W1 trend + US event days (CPI/NFP/FOMC) ----------
+// Self-contained: daily bars from Bybit XAUT (fallback Binance PAXG), calendar from news.json. Missing data only skips that input.
+const INPUTS = {d1At: 0, calAt: 0};
+async function loadEngineInputs(force) {
+  const now = Date.now(); let changed = false;
+  if (force || now - INPUTS.d1At > 30 * 60000) {
+    INPUTS.d1At = now;
+    const srcs = [['https://api.bybit.com/v5/market/kline?category=spot&symbol=XAUTUSDT&interval=D&limit=1000', j => j.result.list.map(r => ({t: +r[0] / 1000, o: +r[1], h: +r[2], l: +r[3], c: +r[4]})).reverse()],
+                  ['https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=1d&limit=1000', j => j.map(r => ({t: r[0] / 1000, o: +r[1], h: +r[2], l: +r[3], c: +r[4]}))]];
+    let ok = false;
+    for (const [u, f] of srcs) { try { const dm = E.dayModel(f(await getJSON(u, 10000))); if (dm) { E.DAILY = dm; changed = ok = true; break; } } catch (e) {} }
+    if (!ok) console.warn('daily bars unavailable: D1/W1 hold filter skipped');
+  }
+  if (force || now - INPUTS.calAt > 10 * 60000) {
+    INPUTS.calAt = now;
+    try { const url = (location.protocol.startsWith('http') ? 'news.json' : 'https://wuttiyanoppakorn-jpg.github.io/xau-signal/news.json') + '?c=' + now;
+      const w = E.loadCalendar(await getJSON(url, 8000)); if (w) console.warn(w); else changed = true; }
+    catch (e) { console.warn('calendar unavailable: event-day filter uses the built-in list only', e.message); }
+  }
+  if (changed && state.bars && state.bars.length >= 80 && state.ctx) fullRecompute(false);
+}
+loadEngineInputs(true); setInterval(() => loadEngineInputs(false), 60000);
 loadNews(); setInterval(() => { if (state.tab === 'news' || Date.now() - NEWS.loadedAt > 600000) loadNews(); }, 300000);
 setInterval(() => { if (state.tab === 'news' && !document.hidden) loadLiveNews(); }, 120000);
 setInterval(renderNextEv, 30000);

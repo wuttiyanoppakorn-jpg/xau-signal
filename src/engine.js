@@ -7,8 +7,52 @@ E.TF_LIST = ['M1', 'M5', 'M15', 'H1', 'H4'];
 E.MTF_W = {M1: 0.5, M5: 0.75, M15: 1, H1: 1.25, H4: 1.5};
 E.W = {ema: 1.5, pullback: 0.75, adx: 1, rsi: 1, div: 1, macd: 1, stoch: 0.75, bb: 0.75, vwap: 0.75, sr: 1, candle: 1, struct: 1, vol: 0.5};
 E.DEFAULTS = {threshold: 60, cooldown: 3, rrShort: 1.5, rrLong: 2.5, slShort: [1.5, 3], slLong: [2, 4], filterH4: true, sessionOnly: false,
-  holdNeedM15: true, scalpSessUTC: [12, 16], minAtrRel: 0.7, beAtR: 1.0};   // golive candidate A (xau-research/golive_study)
+  holdNeedM15: true, scalpSessUTC: [12, 16], minAtrRel: 0.7, beAtR: 1.0,   // golive candidate A (xau-research/golive_study)
+  holdNeedW1D1: true, holdSkipEventDays: true};   // 2026-10-08 new inputs (xau-research/newinputs): passed walk-forward on 2018-2026 spot
 E.GOLIVE_T = 1791444000;   // break-even rule applies to signals from this bar time on
+
+// ---------------- new inputs (2026-10-08): D1/W1 trend context + US high-impact event days ----------------
+// Daily model of gold: UTC daily bars (Saturday dropped, like spot data), up = close > EMA50 of daily closes (EMA seeded with the first close).
+// Weekly: Mon-Fri closes grouped by week (label = the following Sunday 00:00 UTC), up = Friday close > EMA10 of weekly closes.
+// Causal and identical to the research test: D1 = last COMPLETED day; W1 = the week completed BEFORE the most recent completed week.
+E.dayModel = function (bars) {
+  const d = (bars || []).filter(b => new Date(b.t * 1000).getUTCDay() !== 6).sort((a, b) => a.t - b.t);
+  if (d.length < 60) return null;
+  const k50 = 2 / 51, rows = []; let e = null;
+  for (const b of d) { e = e == null ? b.c : b.c * k50 + e * (1 - k50); rows.push({t: b.t, up: b.c > e ? 1 : -1}); }
+  const wk = new Map();
+  for (const b of d) { const dw = new Date(b.t * 1000).getUTCDay(); if (dw === 0) continue;   // Sunday evening belongs to the next week's open
+    const lab = b.t - ((dw + 6) % 7) * 86400 + 6 * 86400; wk.set(lab, b.c); }
+  const labs = [...wk.keys()].sort((a, b) => a - b), k10 = 2 / 11, weeks = []; let w = null;
+  for (const l of labs) { const c = wk.get(l); w = w == null ? c : c * k10 + w * (1 - k10); weeks.push({t: l, up: c > w ? 1 : -1}); }
+  return {rows, weeks};
+};
+E.htfTrendAt = function (dm, tEnd) {   // {d1, w1} as of time tEnd, or null when the daily data is missing/stale
+  if (!dm) return null;
+  let i = -1; for (let k = dm.rows.length - 1; k >= 0; k--) if (dm.rows[k].t + 86400 <= tEnd) { i = k; break; }
+  let j = -1; for (let k = dm.weeks.length - 1; k >= 0; k--) if (dm.weeks[k].t <= tEnd) { j = k; break; }
+  if (i < 0 || j < 1 || tEnd - (dm.rows[i].t + 86400) > 4 * 86400) return null;
+  return {d1: dm.rows[i].up === 1 ? 'up' : 'down', w1: dm.weeks[j - 1].up === 1 ? 'up' : 'down'};
+};
+// US CPI / NFP release days and FOMC statement days (UTC dates). History: ALFRED vintage dates (CPIAUCSL, PAYEMS) + federalreserve.gov.
+// Live: extended from the ForexFactory weekly calendar that the site already publishes in news.json (E.loadCalendar).
+E.DAILY = null;   // optional global daily model (the website sets it from its own daily fetch); ctx extra.d1 wins
+E.EVENT_DAYS = new Set('180105 180112 180131 180202 180214 180309 180313 180321 180406 180411 180502 180504 180510 180601 180612 180613 180706 180712 180801 180803 180810 180907 180913 180926 181005 181011 181102 181108 181114 181207 181212 181219 190104 190111 190130 190201 190213 190308 190312 190320 190405 190410 190501 190503 190510 190607 190612 190619 190705 190711 190731 190802 190813 190906 190912 190918 191004 191010 191030 191101 191113 191206 191211 200110 200114 200129 200207 200213 200303 200306 200311 200315 200403 200410 200429 200508 200512 200605 200610 200702 200714 200729 200807 200812 200904 200911 200916 201002 201013 201105 201106 201112 201204 201210 201216 210108 210113 210127 210205 210210 210305 210310 210317 210402 210413 210428 210507 210512 210604 210610 210616 210702 210713 210728 210806 210811 210903 210914 210922 211008 211013 211103 211105 211110 211203 211210 211215 220107 220112 220126 220204 220210 220304 220310 220316 220401 220412 220504 220506 220511 220603 220610 220615 220708 220713 220727 220805 220810 220902 220913 220921 221007 221013 221102 221104 221110 221202 221213 221214 230106 230112 230201 230203 230214 230310 230314 230322 230407 230412 230503 230505 230510 230602 230613 230614 230707 230712 230726 230804 230810 230901 230913 230920 231006 231012 231101 231103 231114 231208 231212 231213 240105 240111 240131 240202 240213 240308 240312 240320 240405 240410 240501 240503 240515 240607 240612 240705 240711 240731 240802 240814 240906 240911 240918 241004 241010 241101 241107 241113 241206 241211 241218 250110 250115 250129 250207 250212 250307 250312 250319 250404 250410 250502 250507 250513 250606 250611 250618 250703 250715 250730 250801 250812 250905 250911 250917 251024 251029 251120 251210 251216 251218 260109 260113 260128 260211 260213 260306 260311 260318 260403 260410 260429 260508 260512 260605 260610 260617 260702 260714 260729 260807 260812 260904 260911 260916 261002 261028 261209 270127 270317 270428 270609 270728 270915 271027 271208'.split(' ').map(x => `20${x.slice(0, 2)}-${x.slice(2, 4)}-${x.slice(4, 6)}`));
+E.EVENT_COVER = '2026-10-03';   // CPI/NFP dates are known up to this UTC date; later days need the live calendar
+E.loadCalendar = function (news) {   // news.json content -> adds event days; returns a warning string or null
+  try {
+    if (!news || !Array.isArray(news.calendar) || !news.calendar_fetched_at) return 'ไม่มีปฏิทินข่าว (news.json) · ข้ามตัวกรองวันข่าวแรงสำหรับวันที่ยังไม่รู้';
+    for (const x of news.calendar) {
+      if (x.ccy !== 'USD' || !x.t) continue; const tt = String(x.title || '');
+      if (/\bCPI\b/.test(tt) || /Non-Farm Employment Change/i.test(tt) || /FOMC Statement|Federal Funds Rate/i.test(tt)) E.EVENT_DAYS.add(new Date(x.t * 1000).toISOString().slice(0, 10));
+    }
+    // ForexFactory week = Sunday..Saturday (New York); the fetched week is fully covered
+    const f = new Date(news.calendar_fetched_at * 1000 - 4 * 3600 * 1000), sat = new Date(f.getTime() + (6 - f.getUTCDay()) * 86400000).toISOString().slice(0, 10);
+    if (sat > E.EVENT_COVER) E.EVENT_COVER = sat;
+    return null;
+  } catch (e) { return 'อ่านปฏิทินข่าวไม่ได้: ' + e.message; }
+};
+E.isEventDay = function (t) { const d = new Date(t * 1000).toISOString().slice(0, 10); return E.EVENT_DAYS.has(d) ? true : d <= E.EVENT_COVER ? false : null; };
 // London/New York overlap 12:00-16:00 UTC (19:00-23:00 Bangkok). Walk-forward research (xau-research, 2022-2026) found M5 signals in this window
 // beat the 24h engine out-of-sample in 17/20, 8/10 and 5/5 quarterly folds (PAXG all / PAXG 2024Q3+ / XAUT), but it is NOT a proven positive edge.
 E.GOOD_SESSION = {fromUTC: 12, toUTC: 16};
@@ -150,9 +194,9 @@ function pivotsFor(dm, t) {
   return [{v: P, n: 'Pivot P'}, {v: 2 * P - x.l, n: 'R1'}, {v: 2 * P - x.h, n: 'S1'}, {v: P + (x.h - x.l), n: 'R2'}, {v: P - (x.h - x.l), n: 'S2'}];
 }
 
-E.makeCtx = function (tf, mtf) {
+E.makeCtx = function (tf, mtf, extra) {
   const daySrc = mtf && mtf.H1 && mtf.H1.bars.length ? mtf.H1.bars : null;
-  return {tf, sec: E.TF_SEC[tf], mtf: mtf || {}, dm: daySrc ? dayMap(daySrc) : null};
+  return {tf, sec: E.TF_SEC[tf], mtf: mtf || {}, dm: daySrc ? dayMap(daySrc) : null, d1: extra && extra.d1 ? extra.d1 : E.DAILY};
 };
 
 function levelsAt(bars, ind, j, ctx) {
@@ -279,6 +323,7 @@ E.evalBar = function (bars, ind, j, ctx, tEnd) {
 
   for (const d of ['BUY', 'SELL']) { const o = out[d]; o.conf = o.w ? Math.round(50 + 50 * o.sum / o.w) : 0; }
   out.atrRel = ind.atrRel ? ind.atrRel[j] : null; out.hourUTC = new Date(b.t * 1000).getUTCHours();
+  out.t = b.t; out.htf = E.htfTrendAt(ctx.d1, tEnd);   // D1/W1 context (null = daily data missing -> that input is skipped)
   return out;
 };
 
@@ -307,6 +352,8 @@ E.blockReason = function (ev, d, opt) {
   if (opt.minAtrRel && ev.atrRel != null && ev.atrRel < opt.minAtrRel) return 'ตลาดนิ่งเกินไป (ATR ต่ำกว่าปกติ)';
   if (long && opt.holdNeedM15 && ev.mtf.M15 !== want) return 'ไม้ถือยาวต้องให้เทรนด์ M15 ไปทางเดียวกัน';
   if (!long && opt.scalpSessUTC && ev.hourUTC != null && !(ev.hourUTC >= opt.scalpSessUTC[0] && ev.hourUTC < opt.scalpSessUTC[1])) return 'ไม้เก็บสั้นส่งเฉพาะช่วง 19:00–23:00 น.';
+  if (long && opt.holdNeedW1D1 && ev.htf && !(ev.htf.d1 === want && ev.htf.w1 === want)) return 'ไม้ถือยาวต้องให้เทรนด์ D1 และ W1 ไปทางเดียวกัน';
+  if (long && opt.holdSkipEventDays && ev.t != null && E.isEventDay(ev.t) === true) return 'วันนี้มีข่าวแรง (CPI/NFP/FOMC) · งดไม้ถือยาว';
   return null;
 };
 function pick(ev, threshold, filterH4, opt) {

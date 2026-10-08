@@ -11,8 +11,8 @@ import datetime as dt, importlib.util, json, os, pathlib, subprocess, sys, time,
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent
 DATA = pathlib.Path(os.environ.get("XAU_DATA_WT", "/workspace/xau-signal-data"))   # git worktree checked out on branch `data`
-KEEP = {"M1": 1000, "M5": 1500, "M15": 1000, "H1": 1500, "H4": 1500, "D1": 300}
-FETCH_N = {"H1": 5000}   # long H1 history -> UTC daily bars (D1) for the D1/W1 trend context
+KEEP = {"M1": 1000, "M5": 1500, "M15": 1000, "H1": 1500, "H4": 1500, "D1": 500}
+FETCH_N = {"H1": 10000}   # long H1 history -> UTC daily bars (D1) for the D1/W1 trend context
 TF_SEC = {"M1": 60, "M5": 300, "M15": 900, "H1": 3600, "H4": 14400}
 
 def load_tv():

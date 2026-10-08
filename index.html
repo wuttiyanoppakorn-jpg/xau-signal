@@ -722,15 +722,33 @@ const num = Number;
 // (tools/publish_candles.py, also used by the chat routine) and published to the repo's `data` branch → raw.githubusercontent.com (CORS ok).
 // The forming candle is moved live by the gold-api spot price shifted onto the OANDA basis (spot − OANDA measured at publish time).
 // Signals are computed ONLY on published, closed OANDA candles → arrows never move or get cancelled.
-const DATA_URL = 'https://raw.githubusercontent.com/wuttiyanoppakorn-jpg/xau-signal/data/candles.json';
+// Freshness: raw.githubusercontent.com caches a branch URL ~5 min, so the latest `data` commit sha is read from the GitHub API
+// (≤ 1 call / 90 s per visitor, 60/h unauthenticated limit) and the immutable per-commit file is downloaded. API down/limited → branch URL.
+const RAW = 'https://raw.githubusercontent.com/wuttiyanoppakorn-jpg/xau-signal/';
+const SHA_API = 'https://api.github.com/repos/wuttiyanoppakorn-jpg/xau-signal/commits/data';
 const toBars = a => (a || []).map(r => ({t: r[0], o: r[1], h: r[2], l: r[3], c: r[4], v: r[5] || 0}));
-let dataCache = {at: 0, p: null};
+const DC = {doc: null, sha: null, shaAt: 0, at: 0, inflight: null};
+const validDoc = j => { if (!j || !j.bars || !j.bars.M5 || j.bars.M5.length < 300) throw new Error('ข้อมูลกราฟ OANDA ไม่ครบ'); return j; };
+async function latestSha() {
+  if (Date.now() - DC.shaAt < 90000) return DC.sha;
+  DC.shaAt = Date.now();
+  try { const ctl = new AbortController(), to = setTimeout(() => ctl.abort(), 8000);
+    const r = await fetch(SHA_API, {headers: {Accept: 'application/vnd.github.sha'}, cache: 'no-cache', signal: ctl.signal}); clearTimeout(to);
+    const t = r.ok ? (await r.text()).trim() : ''; DC.sha = /^[0-9a-f]{40}$/.test(t) ? t : null; } catch (e) { DC.sha = null; }
+  return DC.sha;
+}
 function loadCandles(force) {
-  if (!force && dataCache.p && Date.now() - dataCache.at < 15000) return dataCache.p;
-  dataCache.at = Date.now();
-  const p = getJSON(DATA_URL + '?t=' + Date.now(), 15000).then(j => { if (!j || !j.bars || !j.bars.M5 || j.bars.M5.length < 300) throw new Error('ข้อมูลกราฟ OANDA ไม่ครบ'); return j; });
-  dataCache.p = p; p.catch(() => { if (dataCache.p === p) dataCache.p = null; });
-  return p;
+  if (DC.inflight) return DC.inflight;
+  if (!force && DC.doc && Date.now() - DC.at < 15000) return Promise.resolve(DC.doc);
+  DC.inflight = (async () => {
+    const sha = await latestSha();
+    if (sha && DC.doc && DC.doc._sha === sha) return DC.doc;   // nothing new
+    const j = validDoc(await getJSON(sha ? RAW + sha + '/candles.json' : RAW + 'data/candles.json?t=' + Date.now(), 15000));
+    j._sha = sha || null;
+    if (!DC.doc || j.updated_t >= DC.doc.updated_t) { DC.doc = j; DC.at = Date.now(); }
+    return DC.doc;
+  })().finally(() => { DC.inflight = null; });
+  return DC.inflight;
 }
 function splitBars(D, tf) {   // closed candles + the forming one (as of publish time)
   const sec = E.TF_SEC[tf], all = toBars(D.bars[tf]);
@@ -1420,17 +1438,16 @@ function renderNews() {
   }
 }
 // ---------- engine inputs added 2026-10-08 (xau-research/newinputs): gold D1/W1 trend + US event days (CPI/NFP/FOMC) ----------
-// Self-contained: daily bars from Bybit XAUT (fallback Binance PAXG), calendar from news.json. Missing data only skips that input.
+// Daily bars = OANDA XAU/USD UTC days (candles.json D1, aggregated from OANDA H1 — the same rows the chat routine uses); calendar from news.json.
+// Missing data only skips that input.
 const INPUTS = {d1At: 0, calAt: 0};
 async function loadEngineInputs(force) {
   const now = Date.now(); let changed = false;
   if (force || now - INPUTS.d1At > 30 * 60000) {
     INPUTS.d1At = now;
-    const srcs = [['https://api.bybit.com/v5/market/kline?category=spot&symbol=XAUTUSDT&interval=D&limit=1000', j => j.result.list.map(r => ({t: +r[0] / 1000, o: +r[1], h: +r[2], l: +r[3], c: +r[4]})).reverse()],
-                  ['https://data-api.binance.vision/api/v3/klines?symbol=PAXGUSDT&interval=1d&limit=1000', j => j.map(r => ({t: r[0] / 1000, o: +r[1], h: +r[2], l: +r[3], c: +r[4]}))]];
     let ok = false;
-    for (const [u, f] of srcs) { try { const dm = E.dayModel(f(await getJSON(u, 10000))); if (dm) { E.DAILY = dm; changed = ok = true; break; } } catch (e) {} }
-    if (!ok) console.warn('daily bars unavailable: D1/W1 hold filter skipped');
+    try { const D = await loadCandles(); const dm = E.dayModel(toBars(D.bars.D1)); if (dm) { E.DAILY = dm; changed = ok = true; } } catch (e) {}
+    if (!ok) { INPUTS.d1At = now - 29 * 60000; console.warn('daily bars unavailable: D1/W1 hold filter skipped (retry in 1 min)'); }
   }
   if (force || now - INPUTS.calAt > 10 * 60000) {
     INPUTS.calAt = now;

@@ -913,6 +913,7 @@ function failReason(ev, dir) {
   const o = ev[dir];
   if (state.sessOnly && state.bars.length && !E.inGoodSession(state.bars[state.bars.length - 1].t)) return 'นอกช่วง 19:00–23:00 น.';
   if (E.DEFAULTS.filterH4 && ev.mtf.H4 === (dir === 'BUY' ? 'down' : 'up')) return 'สวนเทรนด์ H4';
+  { const br = E.blockReason(ev, dir, E.DEFAULTS); if (br) return br; }   // candidate A filters (quiet market / hold needs M15 / scalp hours)
   if (!o.trig.length) return 'จุดกระตุ้นหายไป';
   if (o.conf < state.threshold) return `ความมั่นใจลดลงเหลือ ${o.conf}% (ต่ำกว่าเกณฑ์ ${state.threshold}%)`;
   return 'ติดช่วงพักหลังสัญญาณก่อนหน้า';
@@ -987,10 +988,11 @@ function evalLive(force) {
   let changed = false;
   for (const dir of ['BUY', 'SELL']) {
     const o = ev && ev[dir], h4bad = ev && E.DEFAULTS.filterH4 && ev.mtf.H4 === (dir === 'BUY' ? 'down' : 'up');
+    const blk = ev && E.blockReason(ev, dir, E.DEFAULTS);   // same candidate A filters the engine applies at candle close
     const last = [...state.signals].reverse().find(s => s.dir === dir), cool = !last || j - last.idx > E.DEFAULTS.cooldown;
     const sessOk = !state.sessOnly || E.inGoodSession(bars[j].t);
-    const enter = o && !h4bad && sessOk && cool && o.trig.length && o.conf >= state.threshold;
-    const hold = o && !h4bad && sessOk && o.trig.length && o.conf >= state.threshold - HYST;
+    const enter = o && !h4bad && !blk && sessOk && cool && o.trig.length && o.conf >= state.threshold;
+    const hold = o && !h4bad && !blk && sessOk && o.trig.length && o.conf >= state.threshold - HYST;
     const id = `${state.src}|${state.tf}|${bars[j].t}|${dir}|pre`, rec = logGet(id);
     let p = state.pre[dir]; if (p && p.t !== bars[j].t) p = null;
     if (!p && rec && rec.status === 'รอปิดแท่ง') {   // restored after reload / TF switch
